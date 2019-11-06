@@ -17,7 +17,7 @@
     ELSE = 13,
     WHILE = 14,
     BREAK = 15,
-    CONTINUE = 16, 
+    CONTINUE = 16,
     SC = 17,
     COMMA = 18,
     LPAREN = 19,
@@ -32,6 +32,40 @@
     NUM = 28,
     STRING = 29
   };
+
+
+static const char *FRUIT_STRING[] = {
+  "",
+  "VOID",
+  "INT",
+  "BYTE",
+  "B",
+  "BOOL",
+  "AND",
+  "OR",
+  "NOT",
+  "TRUE",
+  "FALSE",
+  "RETURN",
+  "IF",
+  "ELSE",
+  "WHILE",
+  "BREAK",
+  "CONTINUE",
+  "SC",
+  "COMMA",
+  "LPAREN",
+  "RPAREN",
+  "LBRACE",
+  "RBRACE",
+  "ASSIGN",
+  "RELOP",
+  "BINOP",
+  "COMMENT",
+  "ID",
+  "NUM",
+  "STRING",
+};
   extern int yylineno;
   extern char* yytext;
   extern size_t yyleng;
