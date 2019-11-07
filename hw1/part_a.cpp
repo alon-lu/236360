@@ -2,7 +2,9 @@
 #include <vector>
 #include <iostream>
 #include "tokens.hpp"
+
 extern int yylex();
+
 unsigned int stringLen(const char* str){
     int i=0;
     for (;str[i]!=0;i++);
@@ -31,24 +33,22 @@ char toInsert(char next) {
 char fromAscii(char i,char j) {
     if ((i >= '0' && i <= '7')) {
         int first = i - '0';
-        int second = 0;
+        int second = -1;
         if (j >= '0' && j <= '9') {
             second = j - '0';
+        } else if ((j >= 'a' && j <= 'f')) {
+            second = j - 'a' + 10;
+        } else if ((j >= 'A' && j <= 'F')) {
+            second = j - 'A' + 10;
         }
-        if ((j >= 'a' && j <= 'f')) {
-            second = j - 'a' + 1;
-        }
-        if ((j >= 'A' && j <= 'F')) {
-            second = j - 'A' + 1;
-        }
-        return first * 10 + second;
+        return first * 16 + second;
     }
+    return -1;
 }
 
 void showToken(const int token) {
     if (token == WRONGCHAR) {
-
-        printf("Error <char>\n", yytext);
+        printf("Error %c\n", yytext);
         exit(0);
     }
     if (token == COMMENT) {
@@ -60,17 +60,28 @@ void showToken(const int token) {
             if (yytext[i] != '\\')
                 outputString.push_back(yytext[i]);
             else {
-                char insert = toInsert(yytext[i + 1]);
+                int insert = toInsert(yytext[i + 1]);
                 if (insert == 'n') {
                     printf("Error enclosed string\n");
                     exit(0);
                 }
                 if (insert == 0) {
-                    printf("Error undefined escape sequence q\n");
+                    printf("Error undefined escape sequence %c\n",yytext[i + 1]);
                     exit(0);
                 }
                 if (insert == 'x') {
                     insert = fromAscii(yytext[i + 2], yytext[i + 3]);
+                    if(insert==-1){
+                        printf("Error undefined escape sequence x");
+                        if (yytext[i + 3]=='\"'){
+                            std::cout<<yytext[i + 2]<<std::endl;
+                        }
+                        else{
+                        std::cout<<yytext[i + 2]<<yytext[i + 3]<<std::endl;
+                        }
+                        exit(0);
+                    }
+                    i+=2;
                 }
                 outputString.push_back(insert);
                 i++;
@@ -94,3 +105,15 @@ int main() {
     }
     return 0;
 }
+
+/*
+int main() {
+
+    char char1=-1;
+    char char2=255;
+
+    printf("Signed char : %d\n",char1);
+    printf("Unsigned char : %d\n",char2);
+
+}
+ */

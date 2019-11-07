@@ -30,7 +30,8 @@
     COMMENT = 26,
     ID = 27,
     NUM = 28,
-    STRING = 29
+    STRING = 29,
+	WRONGCHAR = 30
   };
 
 
@@ -65,6 +66,7 @@ static const char *FRUIT_STRING[] = {
   "ID",
   "NUM",
   "STRING",
+  "WRONGCHAR",
 };
   extern int yylineno;
   extern char* yytext;
