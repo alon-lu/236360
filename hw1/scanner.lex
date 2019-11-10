@@ -43,12 +43,13 @@ continue                              return CONTINUE;
 (=)                                   return ASSIGN;
 ((<|>|=|!)=)|>|<                      return RELOP;
 (\+|\-|\*|\/)                         return BINOP;
-\/\/.*(\r|\n|\r\n)                    return COMMENT;
+\/\/([\x00-\x09\x0b-\x0c\x0e-\x7f])*  return COMMENT;
 {letter}({letter}|{digit}|0)*         return ID;
 {digit}({digit}|0)*                   return NUM;
-\"([\x00-\x09\x0b-\x0c\x0e-\x21\x23-\x5b\x5d-\x7f]|((\\)(\\))|((\\)(\"))|((\\)(n))|((\\)(r))|((\\)(t))|((\\)(0))|((\\)x[0-9A-Fa-f][0-9A-Fa-f]))*\"                                    return STRING;
-
+\"([\x00-\x09\x0b-\x0c\x0e-\x21\x23-\x5b\x5d-\x7f]|((\\)(\\))|((\\)(\"))|((\\)(n))|((\\)(r))|((\\)(t))|((\\)(0))|((\\)x))*\"                                    return STRING;
 {whitespace}				                  ;
 .		                                  return WRONGCHAR;
+\"(.|\n)*\"	                            return WRONGSTRING;
+
 
 %%

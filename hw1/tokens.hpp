@@ -31,7 +31,8 @@
     ID = 27,
     NUM = 28,
     STRING = 29,
-	WRONGCHAR = 30
+	WRONGCHAR = 30,
+  WRONGSTRING = 31
   };
 
 
@@ -67,6 +68,7 @@ static const char *FRUIT_STRING[] = {
   "NUM",
   "STRING",
   "WRONGCHAR",
+  "WRONGSTRING"
 };
   extern int yylineno;
   extern char* yytext;

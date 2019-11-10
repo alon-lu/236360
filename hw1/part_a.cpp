@@ -48,8 +48,25 @@ char fromAscii(char i,char j) {
 
 void showToken(const int token) {
     if (token == WRONGCHAR) {
-        printf("Error %c\n", yytext);
+        printf("Error %s\n", yytext);
         exit(0);
+    }
+    if (token == WRONGSTRING) {
+        int strlen = stringLen(yytext);
+        for (size_t i = 1; i < strlen - 1; i++) {
+            if (yytext[i] == '\n' || yytext[i] == '\r' || (yytext[i] == '\\' && i == strlen - 2)) {
+                printf("Error unclosed string\n");
+                exit(0);
+            }
+            if (yytext[i] == '\\') {
+                printf("Error undefined escape sequence %c\n", yytext[i + 1]);
+                exit(0);
+            }
+            if (yytext[i] == '\"') {
+                printf("Error %c\n", yytext[i]);
+                exit(0);
+            }
+        }
     }
     if (token == COMMENT) {
         printf("%d %s %s\n", yylineno, FRUIT_STRING[token], "//");
@@ -57,39 +74,26 @@ void showToken(const int token) {
         int strlen = stringLen(yytext);
         std::string outputString;
         for (int i = 1; i < strlen - 1; i++) {
-            if (yytext[i] != '\\')
+            if (yytext[i] != '\\') {
                 outputString.push_back(yytext[i]);
-            else {
+            } else {
                 int insert = toInsert(yytext[i + 1]);
-                if (insert == 'n') {
-                    printf("Error enclosed string\n");
-                    exit(0);
-                }
-                if (insert == 0) {
-                    printf("Error undefined escape sequence %c\n",yytext[i + 1]);
-                    exit(0);
-                }
                 if (insert == 'x') {
                     insert = fromAscii(yytext[i + 2], yytext[i + 3]);
-                    if(insert==-1){
+                    if (insert == -1) {
                         printf("Error undefined escape sequence x");
-                        if (yytext[i + 3]=='\"'){
-                            std::cout<<yytext[i + 2]<<std::endl;
-                        }
-                        else{
-                        std::cout<<yytext[i + 2]<<yytext[i + 3]<<std::endl;
+                        if (yytext[i + 3] == '\"') {
+                            std::cout << yytext[i + 2] << std::endl;
+                        } else {
+                            std::cout << yytext[i + 2] << yytext[i + 3] << std::endl;
                         }
                         exit(0);
                     }
-                    i+=2;
+                    i += 2;
                 }
                 outputString.push_back(insert);
                 i++;
             }
-        }
-        if (*outputString.end()=='\\'){
-            printf("Error unclosed string\n");
-            exit(0);
         }
         printf("%d %s ", yylineno, FRUIT_STRING[token]);
         std::cout << outputString << std::endl;
