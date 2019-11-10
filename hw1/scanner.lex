@@ -45,11 +45,11 @@ continue                              return CONTINUE;
 (\+|\-|\*|\/)                         return BINOP;
 \/\/([\x00-\x09\x0b-\x0c\x0e-\x7f])*  return COMMENT;
 {letter}({letter}|{digit}|0)*         return ID;
-{digit}({digit}|0)*                   return NUM;
+({digit}({digit}|0)*)|0               return NUM;
 \"([\x00-\x09\x0b-\x0c\x0e-\x21\x23-\x5b\x5d-\x7f]|((\\)(\\))|((\\)(\"))|((\\)(n))|((\\)(r))|((\\)(t))|((\\)(0))|((\\)x))*\"                                    return STRING;
 {whitespace}				                  ;
 .		                                  return WRONGCHAR;
-\"(.|\n)*\"	                            return WRONGSTRING;
+\"(.|\n)*\"	                          return WRONGSTRING;
 
 
 %%
