@@ -31,29 +31,53 @@ char toInsert(char next) {
 }
 
 char fromAscii(char i,char j) {
-    if ((i >= '0' && i <= '7')) {
-        int first = i - '0';
-        int second = -1;
-        if (j >= '0' && j <= '9') {
-            second = j - '0';
-        } else if ((j >= 'a' && j <= 'f')) {
-            second = j - 'a' + 10;
-        } else if ((j >= 'A' && j <= 'F')) {
-            second = j - 'A' + 10;
+    if (j != 0) {
+        if ((i >= '0' && i <= '7')) {
+            int first = i - '0';
+            int second = -1;
+            if (j >= '0' && j <= '9') {
+                second = j - '0';
+            } else if ((j >= 'a' && j <= 'f')) {
+                second = j - 'a' + 10;
+            } else if ((j >= 'A' && j <= 'F')) {
+                second = j - 'A' + 10;
+            }
+            return first * 16 + second;
         }
-        return first * 16 + second;
     }
     return -1;
 }
 
+int checkChar(char* ch,bool location) {
+    if (*ch == '\n') {
+        printf("Error unclosed string\n");
+        exit(0);
+    }
+    if (*ch == '\r') {
+        printf("Error unclosed string\n");
+        exit(0);
+    }
+    if (*ch == '\\' && location == true) {
+        printf("Error unclosed string\n");
+        exit(0);
+    }
+    if (*ch == '\"') {
+        printf("Error %c\n", *ch);
+        exit(0);
+    }
+}
 void showToken(const int token) {
     if (token == WRONGCHAR) {
         printf("Error %s\n", yytext);
         exit(0);
     }
+    if (token == APOST) {
+        printf("Error unclosed string\n");
+        exit(0);
+    }
     if (token == WRONGSTRING) {
         int strlen = stringLen(yytext);
-        for (size_t i = 1; i < strlen - 1; i++) {
+        for (size_t i = 0; i < strlen; i++) {
             if (yytext[i] == '\n' || yytext[i] == '\r' || (yytext[i] == '\\' && i == strlen - 2)) {
                 printf("Error unclosed string\n");
                 exit(0);
@@ -73,16 +97,21 @@ void showToken(const int token) {
     } else if (token == STRING) {
         int strlen = stringLen(yytext);
         std::string outputString;
-        for (int i = 1; i < strlen - 1; i++) {
+        for (int i = 0; i < strlen; i++) {
+            //checkChar(&yytext[i], i == strlen - 2);
             if (yytext[i] != '\\') {
                 outputString.push_back(yytext[i]);
             } else {
                 int insert = toInsert(yytext[i + 1]);
+                if (insert == 0) {
+                    printf("Error undefined escape sequence %c\n", yytext[i + 1]);
+                    exit(0);
+                }
                 if (insert == 'x') {
                     insert = fromAscii(yytext[i + 2], yytext[i + 3]);
                     if (insert == -1) {
                         printf("Error undefined escape sequence x");
-                        if (yytext[i + 3] == '\"') {
+                        if (yytext[i + 3] == 0) {
                             std::cout << yytext[i + 2] << std::endl;
                         } else {
                             std::cout << yytext[i + 2] << yytext[i + 3] << std::endl;

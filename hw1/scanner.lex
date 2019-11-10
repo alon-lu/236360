@@ -11,6 +11,7 @@
 digit   		  ([1-9])
 letter  		  ([a-zA-Z])
 whitespace	  ([\t\n\r ])
+%x STRINGS
 
 
 
@@ -46,10 +47,12 @@ continue                              return CONTINUE;
 \/\/([\x00-\x09\x0b-\x0c\x0e-\x7f])*  return COMMENT;
 {letter}({letter}|{digit}|0)*         return ID;
 ({digit}({digit}|0)*)|0               return NUM;
-\"([\x00-\x09\x0b-\x0c\x0e-\x21\x23-\x5b\x5d-\x7f]|((\\)(\\))|((\\)(\"))|((\\)(n))|((\\)(r))|((\\)(t))|((\\)(0))|((\\)x))*\"                                    return STRING;
 {whitespace}				                  ;
+(\")                                  BEGIN(STRINGS);
+<STRINGS>([\x00-\x09\x0b-\x0c\x0e-\x21\x23-\x5b\x5d-\x7f]|((\\)(\\))|((\\)(\"))|((\\)(n))|((\\)(r))|((\\)(t))|((\\)(0))|((\\)x))* return STRING;
+<STRINGS>(\")                         BEGIN(INITIAL);
+<STRINGS>([^"])*                      return WRONGSTRING;
 .		                                  return WRONGCHAR;
-\"(.|\n)*\"	                          return WRONGSTRING;
 
 
 %%

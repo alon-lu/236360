@@ -32,7 +32,8 @@
     NUM = 28,
     STRING = 29,
 	WRONGCHAR = 30,
-  WRONGSTRING = 31
+  WRONGSTRING = 31,
+  APOST = 32
   };
 
 
