@@ -15,6 +15,8 @@ char toInsert(char next) {
     switch (next) {
         case 'n':
             return '\n';
+        case '0':
+            return '\0';
         case 'r':
             return '\r';
         case 't':
@@ -26,7 +28,7 @@ char toInsert(char next) {
         case 'x':
             return 'x';
         default:
-            return 0;
+            return -1;
     }
 }
 
@@ -48,24 +50,7 @@ char fromAscii(char i,char j) {
     return -1;
 }
 
-int checkChar(char* ch,bool location) {
-    if (*ch == '\n') {
-        printf("Error unclosed string\n");
-        exit(0);
-    }
-    if (*ch == '\r') {
-        printf("Error unclosed string\n");
-        exit(0);
-    }
-    if (*ch == '\\' && location == true) {
-        printf("Error unclosed string\n");
-        exit(0);
-    }
-    if (*ch == '\"') {
-        printf("Error %c\n", *ch);
-        exit(0);
-    }
-}
+
 void showToken(const int token) {
     if (token == WRONGCHAR) {
         printf("Error %s\n", yytext);
@@ -98,12 +83,11 @@ void showToken(const int token) {
         int strlen = stringLen(yytext);
         std::string outputString;
         for (int i = 0; i < strlen; i++) {
-            //checkChar(&yytext[i], i == strlen - 2);
             if (yytext[i] != '\\') {
                 outputString.push_back(yytext[i]);
             } else {
                 int insert = toInsert(yytext[i + 1]);
-                if (insert == 0) {
+                if (insert == -1) {
                     printf("Error undefined escape sequence %c\n", yytext[i + 1]);
                     exit(0);
                 }
@@ -119,6 +103,10 @@ void showToken(const int token) {
                         exit(0);
                     }
                     i += 2;
+                }
+                if (insert == 0) {
+                    outputString.push_back(insert);
+                    break;
                 }
                 outputString.push_back(insert);
                 i++;
