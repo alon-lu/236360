@@ -40,7 +40,6 @@ int content(int token){
 
 int main() {
     int token;
-    bool wasBinop = true;
     std::vector<int> tokens;
     std::vector<int> text;
     while (token = yylex()) {
