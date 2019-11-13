@@ -40,26 +40,26 @@ int content(int token){
 
 int main() {
     int token;
-		bool wasBinop = true;
+    bool wasBinop = true;
     std::vector<int> tokens;
     std::vector<int> text;
     while (token = yylex()) {
         if (token == NUM || token == BINOP) {
             tokens.push_back(token);
             text.push_back(content(token));
-        } else if(token == WRONGCHAR) {
+        } else if (token == WRONGCHAR) {
             printf("Error %s\n", yytext);
             exit(0);
-        }else{
-					printf("Error: %s\n", FRUIT_STRING[token]);
-					exit(0);
-				}
+        } else {
+            printf("Error: %s\n", FRUIT_STRING[token]);
+            exit(0);
+        }
     }
-    while (tokens.size() > 1 && wasBinop==true) {
-			wasBinop=false;
+    while (tokens.size() > 1 && wasBinop == true) {
+        wasBinop = false;
         for (int i = tokens.size() - 1; i >= 0; i--) {
             if (tokens[i] == BINOP) {
-							wasBinop=true;
+                wasBinop = true;
                 if (tokens[i + 1] == NUM && tokens[i + 2] == NUM) {
                     int oper1 = text[i + 1], oper2 = text[i + 2], result = 0;
                     switch (text[i]) {
