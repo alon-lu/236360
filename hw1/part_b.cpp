@@ -34,12 +34,50 @@ int content(int token){
     return retVal;
 }
 
-
-
-
-
+/*
+bool handleInput( std::vector<int> tokens,std::vector<int> text) {
+    bool wasBinop = true;
+    while (tokens.size() > 1 && wasBinop == true) {
+        wasBinop = false;
+        for (int i = tokens.size() - 1; i >= 0; i--) {
+            if (tokens[i] == BINOP) {
+                wasBinop = true;
+                if (tokens[i + 1] == NUM && tokens[i + 2] == NUM) {
+                    int oper1 = text[i + 1], oper2 = text[i + 2], result = 0;
+                    switch (text[i]) {
+                        case PLUS:
+                            result = oper1 + oper2;
+                            break;
+                        case MINUS:
+                            result = oper1 - oper2;
+                            break;
+                        case DIV:
+                            result = oper1 / oper2;
+                            break;
+                        case MUL:
+                            result = oper1 * oper2;
+                            break;
+                        default:
+                            printf("NOOOOOOOOO");
+                            exit(0);
+                    }
+                    text[i + 2] = result;
+                    tokens.erase(tokens.begin() + i, tokens.begin() + (i + 2));
+                    text.erase(text.begin() + i, text.begin() + (i + 2));
+                    break;
+                } else {
+                    printf("Error: Bad Expression1\n");
+                    exit(0);
+                }
+            }
+        }
+    }
+    return wasBinop;
+}
+*/
 int main() {
     int token;
+    bool wasBinop = true;
     std::vector<int> tokens;
     std::vector<int> text;
     while (token = yylex()) {
