@@ -50,24 +50,43 @@ char fromAscii(char i,char j) {
     return -1;
 }
 
+int handleX(int i) {
+    int insert = fromAscii(yytext[i + 2], yytext[i + 3]);
+    if (insert == -1) {
+        printf("Error undefined escape sequence x");
+        if (yytext[i + 2] == '\"') {
+            std::cout << std::endl;
+        } else if (yytext[i + 3] == '\"') {
+            std::cout << yytext[i + 2] << std::endl;
+        } else {
+            std::cout << yytext[i + 2] << yytext[i + 3] << std::endl;
+        }
+        exit(0);
+    }
+    return insert;
+}
+
 
 void showToken(const int token) {
     if (token == WRONGCHAR) {
         printf("Error %s\n", yytext);
         exit(0);
     }
-    if (token == APOST) {
-        printf("Error unclosed string\n");
-        exit(0);
-    }
     if (token == WRONGSTRING) {
         int strlen = stringLen(yytext);
+        if(strlen == 0){
+          printf("Error unclosed string\n");
+          exit(0);
+        }
         for (size_t i = 0; i < strlen; i++) {
-            if (yytext[i] == '\n' || yytext[i] == '\r' || (yytext[i] == '\\' && i == strlen - 2)) {
+            if (yytext[i] == '\n' || yytext[i] == '\r' || (yytext[i] == '\\' && i == strlen - 2)) {//check what happes
                 printf("Error unclosed string\n");
                 exit(0);
             }
             if (yytext[i] == '\\') {
+                if (yytext[i + 1] == 'x') {
+                    handleX(i);
+                }
                 printf("Error undefined escape sequence %c\n", yytext[i + 1]);
                 exit(0);
             }
@@ -76,13 +95,15 @@ void showToken(const int token) {
                 exit(0);
             }
         }
+        printf("Error unclosed string\n");
+        exit(0);
     }
     if (token == COMMENT) {
         printf("%d %s %s\n", yylineno, FRUIT_STRING[token], "//");
     } else if (token == STRING) {
         int strlen = stringLen(yytext);
         std::string outputString;
-        for (int i = 0; i < strlen; i++) {
+        for (int i = 0; i < strlen - 1; i++) {
             if (yytext[i] != '\\') {
                 outputString.push_back(yytext[i]);
             } else {
@@ -92,16 +113,22 @@ void showToken(const int token) {
                     exit(0);
                 }
                 if (insert == 'x') {
+                    insert = handleX(i);
+/*
                     insert = fromAscii(yytext[i + 2], yytext[i + 3]);
                     if (insert == -1) {
                         printf("Error undefined escape sequence x");
-                        if (yytext[i + 3] == 0) {
+                        if (yytext[i + 2] == '\"'){
+                          std::cout << std::endl;
+                        }else
+                        if (yytext[i + 3] == '\"') {
                             std::cout << yytext[i + 2] << std::endl;
                         } else {
                             std::cout << yytext[i + 2] << yytext[i + 3] << std::endl;
                         }
                         exit(0);
                     }
+                  */
                     i += 2;
                 }
                 if (insert == 0) {
@@ -126,15 +153,3 @@ int main() {
     }
     return 0;
 }
-
-/*
-int main() {
-
-    char char1=-1;
-    char char2=255;
-
-    printf("Signed char : %d\n",char1);
-    printf("Unsigned char : %d\n",char2);
-
-}
- */

@@ -49,9 +49,9 @@ continue                              return CONTINUE;
 ({digit}({digit}|0)*)|0               return NUM;
 {whitespace}				                  ;
 (\")                                  BEGIN(STRINGS);
-<STRINGS>([\x00-\x09\x0b-\x0c\x0e-\x21\x23-\x5b\x5d-\x7f]|((\\)(\\))|((\\)(\"))|((\\)(n))|((\\)(r))|((\\)(t))|((\\)(0))|((\\)x))* return STRING;
-<STRINGS>(\")                         BEGIN(INITIAL);
-<STRINGS>([^"])*                      return WRONGSTRING;
+<STRINGS><<EOF>>                      return WRONGSTRING;
+<STRINGS>([\x00-\x09\x0b-\x0c\x0e-\x21\x23-\x5b\x5d-\x7f]|((\\)(\\))|((\\)(\"))|((\\)(n))|((\\)(r))|((\\)(t))|((\\)(0))|((\\)x))*(\") {BEGIN(INITIAL);return STRING;}
+<STRINGS>([^(\")])*((\")?)            return WRONGSTRING;
 .		                                  return WRONGCHAR;
 
 
