@@ -1,5 +1,6 @@
 #ifndef TOKENS_HPP_
 #define TOKENS_HPP_
+#include <stdio.h>
   enum tokentype
   {
     VOID = 1,
@@ -73,6 +74,6 @@ static const char *FRUIT_STRING[] = {
 };
   extern int yylineno;
   extern char* yytext;
-  //extern size_t yyleng;
+  extern size_t yyleng;
   extern int yylex();
 #endif /* TOKENS_HPP_ */

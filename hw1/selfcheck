@@ -50,29 +50,29 @@ fi
 flex scanner.lex &> /dev/null
 if [[ $? != 0 ]] 
 	then
-		echo "Cannot build submission!"
+		echo "1Cannot build submission!"
 		exit
 fi
 g++ -std=c++11 lex.yy.c part_a.cpp -o part_a.out &> /dev/null
 if [[ $? != 0 ]] 
 	then
-		echo "Cannot build submission!"
+		echo "2Cannot build submission!"
 		exit
 fi
 if [ ! -f part_a.out ]
 	then
-		echo "Cannot build submission!"
+		echo "3Cannot build submission!"
 		exit
 fi
 g++ -std=c++11 lex.yy.c part_b.cpp -o part_b.out &> /dev/null
 if [[ $? != 0 ]] 
 	then
-		echo "Cannot build submission!"
+		echo "4Cannot build submission!"
 		exit
 fi
 if [ ! -f part_b.out ]
 	then
-		echo "Cannot build submission!"
+		echo "5Cannot build submission!"
 		exit
 fi
 wget  --no-check-certificate "$testsurl" &> /dev/null

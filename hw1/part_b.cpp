@@ -74,8 +74,7 @@ bool handleInput( std::vector<int> tokens,std::vector<int> text) {
     }
     return wasBinop;
 }
-*/
-int main() {
+*/int main() {
     int token;
     bool wasBinop = true;
     std::vector<int> tokens;
