@@ -27,6 +27,7 @@
 %nonassoc ID;
 %nonassoc NUM;
 %nonassoc STRING;
+%left RPAREN;//-----------------
 %right IF;
 %right ELSE;
 %right ASSIGN;//-----------------
@@ -37,17 +38,18 @@
 %left ADD;//-----------------
 %left MUL;//-----------------
 %left LPAREN;//-----------------
-%left RPAREN;//-----------------
 %right NOT;//-----------------
+%nonassoc XXX;
 
-
+%nonassoc XX;
 
 
 %%
 
 Program :		  	 Enums Funcs{output::printProductionRule(1);};
-Funcs :	     	     {output::printProductionRule(2);}
-								 | FuncDecl Funcs {output::printProductionRule(3);};
+Funcs :	     	    %prec XXX {output::printProductionRule(2);}
+								 | FuncDecl Funcs %prec XX{output::printProductionRule(3);};
+
 FuncDecl :   	   RetType ID LPAREN Formals RPAREN LBRACE Statements RBRACE {output::printProductionRule(4);};
 Enums :			  	   {output::printProductionRule(5);}
 								 | EnumDecl Enums {output::printProductionRule(6);};
@@ -75,12 +77,15 @@ Statement : 		 LBRACE Statements RBRACE {output::printProductionRule(21);}
 								 | Call SC {output::printProductionRule(28);}
 								 | RETURN SC {output::printProductionRule(29);}
 								 | RETURN Exp SC {output::printProductionRule(30);}
-								 | IF LPAREN Exp RPAREN Statement Fruit {;}
+								 // | IF LPAREN Exp RPAREN Statement Fruit {;}
+								 | IF LPAREN Exp RPAREN Statement   {output::printProductionRule(31);}
+								 | IF LPAREN Exp RPAREN Statement ELSE Statement {output::printProductionRule(32);}
+
 								 | WHILE LPAREN Exp RPAREN Statement {output::printProductionRule(33);}
 								 | BREAK SC {output::printProductionRule(34);}
 								 | CONTINUE SC {output::printProductionRule(35);};
-Fruit : 				   {output::printProductionRule(31);}
-								 | ELSE Statement {output::printProductionRule(32);};
+// Fruit : 				   {output::printProductionRule(31);}
+// 								 | ELSE Statement {output::printProductionRule(32);};
 Call :       	   ID LPAREN ExpList RPAREN {output::printProductionRule(36);}
 								 | ID LPAREN RPAREN {output::printProductionRule(37);};
 ExpList : 		 	 Exp {output::printProductionRule(38);}
@@ -107,9 +112,15 @@ Exp :      	  	 LPAREN Exp RPAREN {output::printProductionRule(44);}
 							   |  LPAREN Type RPAREN Exp {output::printProductionRule(57);};
 %%
 //
+
 int main()
 {
+	#ifndef YYDEBUG
+		yydebug=1;
+		#endif
+
 	return yyparse();
+
 }
 
 int yyerror(const char * message)
