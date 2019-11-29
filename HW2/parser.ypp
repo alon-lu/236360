@@ -7,7 +7,6 @@
 	#include "output.hpp"
 %}
 
-
 %nonassoc VOID;
 %nonassoc INT;
 %nonassoc BYTE;
@@ -27,23 +26,20 @@
 %nonassoc ID;
 %nonassoc NUM;
 %nonassoc STRING;
-%left RPAREN;//-----------------
+%right ASSIGN;
+%left OR;
+%left AND;
+%left RELOPL;
+%nonassoc RELOPN;
+%left ADD;
+%left MUL;
+%left RPAREN;
 %right IF;
 %right ELSE;
-%right ASSIGN;//-----------------
-%left AND;//-----------------
-%left OR;//-----------------
-%left RELOPL;//-----------------
-%nonassoc RELOPN;//-----------------
-%left ADD;//-----------------
-%left MUL;//-----------------
-%left LPAREN;//-----------------
-%right NOT;//-----------------
+%left LPAREN;
+%right NOT;
 %nonassoc XXX;
-
 %nonassoc XX;
-
-
 %%
 
 Program :		  	 Enums Funcs{output::printProductionRule(1);};
@@ -111,16 +107,11 @@ Exp :      	  	 LPAREN Exp RPAREN {output::printProductionRule(44);}
 							   | Exp MUL Exp {output::printProductionRule(45);}
 							   |  LPAREN Type RPAREN Exp {output::printProductionRule(57);};
 %%
-//
+
 
 int main()
 {
-	#ifndef YYDEBUG
-		yydebug=1;
-		#endif
-
 	return yyparse();
-
 }
 
 int yyerror(const char * message)
