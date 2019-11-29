@@ -78,7 +78,7 @@ Statement : 		 LBRACE Statements RBRACE {output::printProductionRule(21);}
 								 | RETURN SC {output::printProductionRule(29);}
 								 | RETURN Exp SC {output::printProductionRule(30);}
 								 // | IF LPAREN Exp RPAREN Statement Fruit {;}
-								 | IF LPAREN Exp RPAREN Statement   {output::printProductionRule(31);}
+								 | IF LPAREN Exp RPAREN Statement {output::printProductionRule(31);}
 								 | IF LPAREN Exp RPAREN Statement ELSE Statement {output::printProductionRule(32);}
 
 								 | WHILE LPAREN Exp RPAREN Statement {output::printProductionRule(33);}
@@ -125,6 +125,6 @@ int main()
 
 int yyerror(const char * message)
 {
-	cout<<"Parse error: "<<message<<endl;
+	output::errorSyn(yylineno);
 	exit(0);
 }

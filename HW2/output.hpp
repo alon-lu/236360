@@ -3,6 +3,7 @@
 
 #include <string>
 using namespace std;
+extern int yylineno;
 
 namespace output {
 	extern const string rules[];
