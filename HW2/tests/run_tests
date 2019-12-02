@@ -2,7 +2,7 @@
 command="./hw2 < t\$i.in >& t\$i.res"
 
 i="1"
-numtests=17
+numtests=21
  
 while [ $i -le $numtests ] 
 	do 
