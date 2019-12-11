@@ -4,15 +4,16 @@
 	using namespace std;
 	extern int yylex();
 	int yyerror(const char * message);
-	#include "output.hpp"
+	#include "hw3_output.hpp"
+	#include "classes.hpp"
 %}
 
-%nonassoc VOID;
-%nonassoc INT;
-%nonassoc BYTE;
-%nonassoc B;
-%nonassoc BOOL;
-%nonassoc ENUM;
+%nonassoc VOID;//
+%nonassoc INT;//
+%nonassoc BYTE;//
+%nonassoc B;//
+%nonassoc BOOL;///
+%nonassoc ENUM;////
 %nonassoc TRUE;
 %nonassoc FALSE;
 %nonassoc RETURN;
@@ -42,25 +43,25 @@
 %nonassoc XX;
 %%
 
-Program :		  	 Enums Funcs{output::printProductionRule(1);};
-Funcs :	     	    %prec XXX {output::printProductionRule(2);}
-								 | FuncDecl Funcs %prec XX{output::printProductionRule(3);};
+Program :		  	 {$$=Program PROGRAM;} Enums Funcs;
+Funcs :	     	    %prec XXX {$$=Funcs FUNCS;}
+								 | FuncDecl Funcs %prec XX{$$=Funcs FUNCS};
 
-FuncDecl :   	   RetType ID LPAREN Formals RPAREN LBRACE Statements RBRACE {output::printProductionRule(4);};
-Enums :			  	   {output::printProductionRule(5);}
+FuncDecl :   	   RetType ID LPAREN Formals RPAREN LBRACE Statements RBRACE {$$=FuncsDecl FUNCDECL(&1,$2,$4)};
+Enums :			  	   //epsilon
 								 | EnumDecl Enums {output::printProductionRule(6);};
 EnumDecl :   	   ENUM ID LBRACE EnumeratorList RBRACE SC {output::printProductionRule(7);};
-RetType : 	  	 Type {output::printProductionRule(8);}
-								 | VOID {output::printProductionRule(9);};
+RetType : 	  	 Type {$$=RetType RETTYPE(&1)}
+								 | VOID {$$=RetType RETTYPE(&1)};
 Formals :     	   {output::printProductionRule(10);}
 								 |FormalsList {output::printProductionRule(11);};
 FormalsList : 	 FormalDecl {output::printProductionRule(12);}
 								 | FormalDecl COMMA FormalsList {output::printProductionRule(13);};
-FormalDecl :  	 Type ID {output::printProductionRule(14);}
+FormalDecl :  	 Type ID {output::printProductionRule(14);}//check that the arguments in the symbol table are the same as type
 								 | EnumType ID {output::printProductionRule(15);};
 EnumeratorList : Enumerator {output::printProductionRule(16);}
 								 | EnumeratorList COMMA Enumerator {output::printProductionRule(17);};
-Enumerator : 		 ID {output::printProductionRule(18);};
+Enumerator : 		 ID {Enumerator($1);};
 Statements : 	   Statement {output::printProductionRule(19);}
 								 | Statements Statement {output::printProductionRule(20);};
 Statement : 		 LBRACE Statements RBRACE {output::printProductionRule(21);}
@@ -73,23 +74,20 @@ Statement : 		 LBRACE Statements RBRACE {output::printProductionRule(21);}
 								 | Call SC {output::printProductionRule(28);}
 								 | RETURN SC {output::printProductionRule(29);}
 								 | RETURN Exp SC {output::printProductionRule(30);}
-								 // | IF LPAREN Exp RPAREN Statement Fruit {;}
 								 | IF LPAREN Exp RPAREN Statement {output::printProductionRule(31);}
 								 | IF LPAREN Exp RPAREN Statement ELSE Statement {output::printProductionRule(32);}
 
 								 | WHILE LPAREN Exp RPAREN Statement {output::printProductionRule(33);}
 								 | BREAK SC {output::printProductionRule(34);}
 								 | CONTINUE SC {output::printProductionRule(35);};
-// Fruit : 				   {output::printProductionRule(31);}
-// 								 | ELSE Statement {output::printProductionRule(32);};
 Call :       	   ID LPAREN ExpList RPAREN {output::printProductionRule(36);}
 								 | ID LPAREN RPAREN {output::printProductionRule(37);};
 ExpList : 		 	 Exp {output::printProductionRule(38);}
 								 | Exp COMMA ExpList {output::printProductionRule(39);};
-Type : 		 			 INT {output::printProductionRule(40);}
-								 | BYTE {output::printProductionRule(41);}
-								 | BOOL {output::printProductionRule(42);};
-EnumType : 	  	 ENUM ID {output::printProductionRule(43);};
+Type : 		 			 INT {$$=Type TYPE(&1)};
+								 | BYTE {$$=Type TYPE(&1)};
+								 | BOOL {$$=Type TYPE(&1)};
+EnumType : 	  	 ENUM ID {$$=EnumType ENUMTYPE($1,$2)};
 Exp :      	  	 LPAREN Exp RPAREN {output::printProductionRule(44);}
 								 | Exp AND Exp {output::printProductionRule(54);}
 								 | Exp OR Exp {output::printProductionRule(55);}
@@ -106,6 +104,7 @@ Exp :      	  	 LPAREN Exp RPAREN {output::printProductionRule(44);}
   						   | Exp ADD Exp {output::printProductionRule(45);}
 							   | Exp MUL Exp {output::printProductionRule(45);}
 							   |  LPAREN Type RPAREN Exp {output::printProductionRule(57);};
+
 %%
 
 

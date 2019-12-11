@@ -109,6 +109,7 @@ void output::printEnumType(const string& name, std::vector<string>& values)
 	cout << "enum " << name << " " << valueListsToString(values) <<  endl;
 }
 
+
 void output::errorLex(int lineno){
     cout << "line " << lineno << ":" << " lexical error" << endl;
 }
@@ -144,13 +145,13 @@ void output::errorMismatch(int lineno){
 void output::errorPrototypeMismatch(int lineno, const string& id, std::vector<string>& argTypes) {
     cout << "line " << lineno << ": prototype mismatch, function " << id << " expects arguments " << typeListToString(argTypes) << endl;
 }
-	
+
 void output::errorUnexpectedBreak(int lineno) {
-	cout << "line " << lineno << ":" << " unexpected break statement" << endl;	
+	cout << "line " << lineno << ":" << " unexpected break statement" << endl;
 }
 
 void output::errorUnexpectedContinue(int lineno) {
-	cout << "line " << lineno << ":" << " unexpected continue statement" << endl;	
+	cout << "line " << lineno << ":" << " unexpected continue statement" << endl;
 }
 
 void output::errorMainMissing() {
@@ -159,4 +160,4 @@ void output::errorMainMissing() {
 
 void output::errorByteTooLarge(int lineno, const string& value) {
 	cout << "line " << lineno << ": byte value " << value << " out of range"<< endl;
-} 
+}
