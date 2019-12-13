@@ -1,13 +1,15 @@
 #ifndef CLASSES_HPP
 #define CLASSES_HPP
 
+#include <iostream>
 #include <string>
 #include <vector>
 #include <stack>
-
+#include "hw3_output.hpp"
+extern int yylineno;
 using namespace std;
 
-vector<string> TYPES = {"VOID", "INT", "BYTE", "BOOL", "STRING"};
+
 
 //Single entry for symbol table
 class Entry{
@@ -31,10 +33,13 @@ class Enum{
 public:
     string name;
     vector<string> values;
+
+    Enum(string n, vector<string> vec):name(n), values(vec){};
 };
 static stack<SymbolTable*> tablesStack;
 static stack<int> offsetsStack;
 static vector<Enum> enums;
+static vector<string> TYPES = {"void", "int", "byte", "bool", "string"};
 
 class Node{
 public:
@@ -60,7 +65,7 @@ class EnumType: public Node{
                 return;
             }
         }
-        //erorrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrr
+        output::errorUndefEnum(yylineno, id->value);
     }
 };
 
@@ -76,26 +81,87 @@ class Type: public Node{
 
 };class Statements: public Node{
 
-};class Enumerator: public Node{
+};
+class Enumerator: public Node{
+    Enumerator(Node* id):Node(id->value){};
+};
 
-};class EnumeratorList: public Node{
-
-};class FormalDecl: public Node{
-
-};class FormalsList: public Node{
-
-};class Formals: public Node{
-
-}
-;class RetType: public Node{
+class EnumeratorList: public Node{
 public:
-    RetType(Node* type):Node(type->value){};
-}
-;class EnumDecl: public Node{
+    vector<string> enumerators;
+    //The value of EnumeratorList is empty!!!
+    EnumeratorList(Enumerator* enumerator){
+        enumerators.push_back(enumerator->value);
+    }
 
-};class Enums: public Node{
+    EnumeratorList(EnumeratorList* elist, Enumerator* enumerator){
+        enumerators = vector<string> (elist->enumerators);
+        enumerators.push_back(enumerator->value);
+    }
+};
+
+
+class FormalDecl: public Node{
+public:
+    string type;
+    //Node->value is the ID
+
+    FormalDecl(Type* t, Node* id):Node(id->value), type(t->value){
+        if(checkingTypes(type) == false){
+            std::cout<<"NOT SUPPOSE TO HAPPENED!!"<<std::endl;
+        }
+    }
+    FormalDecl(EnumType* t, Node* id):Node(id->value), type(t->value){
+        if(checkingTypes(type) == false){
+            output::errorUndefEnum(yylineno,type);
+        }
+    }
+    bool checkingTypes(string str){
+        for(auto i: TYPES){
+            if(i.compare(str) == 0){
+                return true;
+            }
+        }
+        return false;
+    }
+};
+class FormalsList: public Node{
+public:
+    vector<FormalDecl*> formals;
+    //The value of FormalsList is empty!!!
+    FormalsList(FormalDecl* formal){
+        formals.push_back(formal);
+    }
+
+    FormalsList(FormalsList* flist, FormalDecl* formal){
+        formals = vector<FormalDecl*> (flist->formals);
+        formals.push_back(formal);
+    }
+};
+
+class Formals: public Node{
 
 };
+
+class RetType: public Node{
+public:
+    RetType(Node* type):Node(type->value){};
+};
+
+class EnumDecl: public Node{
+public:
+    vector<string> enumerators;
+
+    EnumDecl(Node* id, EnumeratorList* lst):Node(id->value), enumerators(lst->enumerators){
+        TYPES.push_back("enum "+id->value);
+        enums.push_back(Enum(id->value, lst->enumerators));
+    }
+
+};
+
+//class Enums: public Node{
+//
+//};
 
 class FuncDecl: public Node{
 //public:
@@ -117,10 +183,10 @@ public:
 
     Program(){
         SymbolTable* global = new SymbolTable();
-        const vector<string> temp = {"STRING", "VOID"};
+        const vector<string> temp = {"string", "void"};
         Entry* print = new Entry("print", temp, offsetsStack.top());
         offsetsStack.top()++;
-        const vector<string> temp2 = {"INT", "VOID"};
+        const vector<string> temp2 = {"int", "void"};//to do arg of byte also
         Entry* printi = new Entry("printi", temp2, offsetsStack.top());
         offsetsStack.top()++;
         global->lines.push_back(print);
@@ -132,23 +198,6 @@ public:
 
 
 
-//static void init(){
-//    SymbolTable* global = new SymbolTable;
-//    offsetsStack.push(0);
-//    tablesStack.push(global);
-//}
-//
-//static Node* enumerator(Node* id){
-//    SymbolTable* global = new SymbolTable;
-//    offsetsStack.push(0);
-//    tablesStack.push(global);
-//}
-//
-//static Node* enumDecel(){
-//    SymbolTable* global = new SymbolTable;
-//    offsetsStack.push(0);
-//    tablesStack.push(global);
-//}
 
 //#define YYSTYPE yystype
 #endif //CLASSES_HPP
