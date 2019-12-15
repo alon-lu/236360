@@ -47,7 +47,7 @@ Program :		  	 {$$=Program PROGRAM;} Enums Funcs;
 Funcs :	     	    %prec XXX {$$=Funcs FUNCS;}
 								 | FuncDecl Funcs %prec XX{$$=Funcs FUNCS};
 
-FuncDecl :   	   RetType ID LPAREN Formals RPAREN LBRACE Statements RBRACE {$$=FuncsDecl FUNCDECL($1,$2,$4)};
+FuncDecl :   	   RetType ID LPAREN Formals RPAREN LBRACE Statements RBRACE {$$=FuncsDecl FUNCDECL($1,$2,$4)};//todo //opening scope
 Enums :			  	   //epsilon
 								 | EnumDecl Enums {};//this is empty on purpose
 EnumDecl :   	   ENUM ID LBRACE EnumeratorList RBRACE SC {$$=EnumDecl ENUMDECL($2,$4);};
@@ -64,46 +64,45 @@ EnumeratorList : Enumerator  {$$=EnumeratorList ENUMERATORLIST($1);}
 Enumerator : 		 ID {$$=Enumerator ENUMARATOR($1);};
 Statements : 	   Statement {output::printProductionRule(19);}
 								 | Statements Statement {output::printProductionRule(20);};
-Statement : 		 LBRACE Statements RBRACE {output::printProductionRule(21);}
-								 | Type ID SC {output::printProductionRule(22);}
-								 | EnumType ID SC {output::printProductionRule(23);}
-								 | EnumDecl {output::printProductionRule(24);}
-								 | Type ID ASSIGN Exp SC {output::printProductionRule(25);}
-								 | EnumType ID ASSIGN Exp SC {output::printProductionRule(26);}
-								 | ID ASSIGN Exp SC {output::printProductionRule(27);}
-								 | Call SC {output::printProductionRule(28);}
-								 | RETURN SC {output::printProductionRule(29);}
-								 | RETURN Exp SC {output::printProductionRule(30);}
-								 | IF LPAREN Exp RPAREN Statement {output::printProductionRule(31);}
-								 | IF LPAREN Exp RPAREN Statement ELSE Statement {output::printProductionRule(32);}
-
-								 | WHILE LPAREN Exp RPAREN Statement {output::printProductionRule(33);}
-								 | BREAK SC {output::printProductionRule(34);}
-								 | CONTINUE SC {output::printProductionRule(35);};
+Statement : 		 LBRACE Statements RBRACE {$$=Statement STATEMENT($2);}//opening scope
+								 | Type ID SC {$$=Statement STATEMENT($1,$2);}//done
+								 | EnumType ID SC {$$=Statement STATEMENT($1,$2);}//done
+								 | EnumDecl {$$=Statement STATEMENT($2);}
+								 | Type ID ASSIGN Exp SC {$$=Statement STATEMENT($1,$2,$3);}//done
+								 | EnumType ID ASSIGN Exp SC {$$=Statement STATEMENT($1,$2,$3);}//done
+								 | ID ASSIGN Exp SC {$$=Statement STATEMENT($2);}
+								 | Call SC {$$=Statement STATEMENT($2);}
+								 | RETURN SC {$$=Statement STATEMENT($2);}
+								 | RETURN Exp SC {$$=Statement STATEMENT($2);}
+								 | IF LPAREN Exp RPAREN Statement {$$=Statement STATEMENT($2);}//opening scope
+								 | IF LPAREN Exp RPAREN Statement ELSE Statement {$$=Statement STATEMENT($2);}//opening 2 scope
+								 | WHILE LPAREN Exp RPAREN Statement {$$=Statement STATEMENT($1,$3,$4);}//opening scope
+								 | BREAK SC {$$=Statement STATEMENT($1);}
+								 | CONTINUE SC {$$=Statement STATEMENT($1);};
 Call :       	   ID LPAREN ExpList RPAREN {output::printProductionRule(36);}
 								 | ID LPAREN RPAREN {output::printProductionRule(37);};
-ExpList : 		 	 Exp {output::printProductionRule(38);}
-								 | Exp COMMA ExpList {output::printProductionRule(39);};
+ExpList : 		 	 Exp {$$=ExpList EXPLIST($1);}
+								 | Exp COMMA ExpList {$$=ExpList EXPLIST($1,$3)};
 Type : 		 			 INT {$$=Type TYPE($1)};//
 								 | BYTE {$$=Type TYPE($1)};
 								 | BOOL {$$=Type TYPE($1)};
 EnumType : 	  	 ENUM ID {$$=EnumType ENUMTYPE($1,$2)};//
-Exp :      	  	 LPAREN Exp RPAREN {output::printProductionRule(44);}
-								 | Exp AND Exp {output::printProductionRule(54);}
-								 | Exp OR Exp {output::printProductionRule(55);}
-								 | ID {output::printProductionRule(46);}
+Exp :      	  	 LPAREN Exp RPAREN {$$=Exp EXP($2);}//done
+								 | Exp AND Exp {$$=Exp EXP($1,$2,$3,"AND");}//done
+								 | Exp OR Exp {$$=Exp EXP($1,$2,$3,"OR");}//done
+								 | ID {$$=Exp EXP($1);}//done
 								 | Call {output::printProductionRule(47);}
-								 | NUM {output::printProductionRule(48);}
-								 | NUM B {output::printProductionRule(49);}
-  						   | STRING {output::printProductionRule(50);}
-								 | TRUE {output::printProductionRule(51);}
-								 | FALSE {output::printProductionRule(52);}
-								 | NOT Exp {output::printProductionRule(53);}
-								 | Exp RELOPL Exp {output::printProductionRule(56);}
-								 | Exp RELOPN Exp {output::printProductionRule(56);}
-  						   | Exp ADD Exp {output::printProductionRule(45);}
-							   | Exp MUL Exp {output::printProductionRule(45);}
-							   |  LPAREN Type RPAREN Exp {output::printProductionRule(57);};
+								 | NUM {$$=Exp EXP($1,"num");}//done
+								 | NUM B {$$=Exp EXP($1,"B";}//done
+  						   | STRING {$$=Exp EXP($1,"string");}//done
+								 | TRUE {$$=Exp EXP($1,"bool");}//done
+								 | FALSE {$$=Exp EXP($1,"bool");}//done
+								 | NOT Exp {$$=Exp EXP($1,$2);}//done
+								 | Exp RELOPL Exp {$$=Exp EXP($1,$2,$3,"RELOPL");}//done
+								 | Exp RELOPN Exp {$$=Exp EXP($1,$2,$3,"RELOPN");}//done
+  						   | Exp ADD Exp {$$=Exp EXP($1,$2,$3,"ADD");}//done
+							   | Exp MUL Exp {$$=Exp EXP($1,$2,$3,"MUL");}//done
+							   | LPAREN Type RPAREN Exp {$$=Exp EXP($2,$4);};//todo handle casting
 
 %%
 
