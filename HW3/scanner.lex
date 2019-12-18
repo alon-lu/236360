@@ -2,9 +2,8 @@
 
 /* Declarations section */
 #include <stdio.h>
-#define YYSTYPE Node*
+#include "classes.hpp"
 #include "parser.tab.hpp"
-#include "output.hpp"
 %}
 
 %option yylineno

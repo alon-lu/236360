@@ -1,11 +1,12 @@
 %{
 	#include <iostream>
 	#include <stdlib.h>
+	#include "classes.hpp"
+	#include "hw3_output.hpp"
 	using namespace std;
 	extern int yylex();
 	int yyerror(const char * message);
-	#include "hw3_output.hpp"
-	#include "classes.hpp"
+
 %}
 
 %nonassoc VOID;//
@@ -43,65 +44,65 @@
 %nonassoc XX;
 %%
 
-Program :		  	 {$$= new Program PROGRAM();} Enums Funcs;
-Funcs :	     	    %prec XXX {$$= new Funcs FUNCS();}//done
-								 | FuncDecl Funcs %prec XX{$$= new Funcs FUNCS();};//done
-FuncDecl :   	   RetType ID LPAREN Formals RPAREN{$$= new FuncsDecl FUNCDECL($1,$2,$4);} LBRACE OS {enterArguments($4);} Statements CS RBRACE ;//done
-Enums :			  	   {$$= new Enums ENUMS();} //epsilon
-								 | EnumDecl Enums {$$= new Enums ENUMS();};//this is empty on purpose
-EnumDecl :   	   ENUM ID LBRACE EnumeratorList RBRACE SC {$$= new EnumDecl ENUMDECL($2,$4);};
-RetType : 	  	 Type {$$= new RetType RETTYPE($1);}
-								 | VOID {$$= new RetType RETTYPE($1);};
-Formals :     	   {$$= new Formals FORMALS();}//done
-								 |FormalsList {$$= new Formals FORMALS($1);};//done
-FormalsList : 	 FormalDecl {$$= new FormalsList FORMALLIST($1);}//done
-								 | FormalDecl COMMA FormalsList {$$= new FormalsList FORMALLIST($2,$1);};//done
-FormalDecl :  	 Type ID {$$= new FormalDecl FORMALDECL($1,$2);}//done
-								 | EnumType ID {$$= new FormalDecl FORMALDECL($1,$2);};//done
-EnumeratorList : Enumerator  {$$= new EnumeratorList ENUMERATORLIST($1);}//done
-								 | EnumeratorList COMMA Enumerator {$$= new EnumeratorList ENUMERATORLIST($1,$2);};//done
-Enumerator : 		 ID {$$= new Enumerator ENUMARATOR($1);};//done
-Statements : 	   Statement {$$= new Statements STATEMENTS($1);}//done
-								 | Statements Statement {$$= new Statements STATEMENTS($1, $2);};//done
-Statement : 		 LBRACE OS Statements CS RBRACE {$$= new Statement STATEMENT($3);}//done
-								 | Type ID SC {$$= new Statement STATEMENT($1,$2);}//done
-								 | EnumType ID SC {$$= new Statement STATEMENT($1,$2);}//done
-								 | EnumDecl {$$= new Statement STATEMENT($1);}//done
-								 | Type ID ASSIGN Exp SC {$$= new Statement STATEMENT($1,$2,$3);}//done
-								 | EnumType ID ASSIGN Exp SC {$$= new Statement STATEMENT($1,$2,$3);}//done
-								 | ID ASSIGN Exp SC {$$= new Statement STATEMENT($1, $3);}//done
-								 | Call SC {$$= new Statement STATEMENT($1);}//done
-								 | RETURN SC {$$= new Statement STATEMENT("void");}//done
-								 | RETURN Exp SC {$$= new Statement STATEMENT($2);}//done
-								 | IF LPAREN Exp RPAREN OS Statement CS {$$= new Statement STATEMENT($3,$6);}//done
-								 | IF LPAREN Exp RPAREN OS Statement CS ELSE OS Statement CS {$$= new Statement STATEMENT($3,$6,$10);}//done
-								 | WHILE LPAREN Exp RPAREN {inLoop();} OS Statement CS {$$= new Statement STATEMENT($1,$3,$7); outLoop();}//done
-								 | BREAK SC {$$= new Statement STATEMENT($1);}//done
-								 | CONTINUE SC {$$= new Statement STATEMENT($1);};//done
-Call :       	   ID LPAREN ExpList RPAREN {$$= new Call CALL($1,$3);}//done
-								 | ID LPAREN RPAREN {$$= new Call CALL($1);};//done
-ExpList : 		 	 Exp {$$= new ExpList EXPLIST($1);}//done
-								 | Exp COMMA ExpList {$$= new ExpList EXPLIST($1,$3)};//done
-Type : 		 			 INT {$$= new Type TYPE($1);}////done
-								 | BYTE {$$= new Type TYPE($1);}//done
-								 | BOOL {$$= new Type TYPE($1);};//done
-EnumType : 	  	 ENUM ID {$$= new EnumType ENUMTYPE($1,$2);};//done
-Exp :      	  	 LPAREN Exp RPAREN {$$= new Exp EXP($2);}//done
-								 | Exp AND Exp {$$= new Exp EXP($1,$2,$3,"AND");}//done
-								 | Exp OR Exp {$$= new Exp EXP($1,$2,$3,"OR");}//done
-								 | ID {$$= new Exp EXP($1);}//done
-								 | Call {$$= new Exp EXP($1);}//done
-								 | NUM {$$= new Exp EXP($1,"num");}//done
-								 | NUM B {$$= new Exp EXP($1,"B";}//done
-  						   | STRING {$$= new Exp EXP($1,"string");}//done
-								 | TRUE {$$= new Exp EXP($1,"bool");}//done
-								 | FALSE {$$= new Exp EXP($1,"bool");}//done
-								 | NOT Exp {$$= new Exp EXP($1,$2);}//done
-								 | Exp RELOPL Exp {$$= new Exp EXP($1,$2,$3,"RELOPL");}//done
-								 | Exp RELOPN Exp {$$= new Exp EXP($1,$2,$3,"RELOPN");}//done
-  						   | Exp ADD Exp {$$= new Exp EXP($1,$2,$3,"ADD");}//done
-							   | Exp MUL Exp {$$= new Exp EXP($1,$2,$3,"MUL");}//done
-							   | LPAREN Type RPAREN Exp {$$= new Exp EXP($2,$4);};//done
+Program :		  	 {$$= new Program();} Enums Funcs;
+Funcs :	     	    %prec XXX {$$= new Funcs ();}//done
+								 | FuncDecl Funcs %prec XX{$$= new Funcs ();};//done
+FuncDecl :   	   RetType ID LPAREN Formals RPAREN {$$= new FuncDecl(dynamic_cast<RetType*>($1),$2,dynamic_cast<Formals*>($4));} LBRACE OS {enterArguments(dynamic_cast<Formals*>($4));} Statements CS RBRACE ;//done
+Enums :			  	   {$$= new Enums ();} //epsilon
+								 | EnumDecl Enums {$$= new Enums ();};//this is empty on purpose
+EnumDecl :   	   ENUM ID LBRACE EnumeratorList RBRACE SC {$$= new EnumDecl ($2,dynamic_cast<EnumeratorList*>($4));};
+RetType : 	  	 Type {$$= new RetType(dynamic_cast<Type*> ($1));}
+								 | VOID {$$= new RetType($1);};
+Formals :     	   {$$= new Formals ();}//done
+								 |FormalsList {$$= new Formals(dynamic_cast<FormalsList*> ($1));};//done
+FormalsList : 	 FormalDecl {$$= new FormalsList(dynamic_cast<FormalDecl*> ($1));}//done
+								 | FormalDecl COMMA FormalsList {$$= new FormalsList (dynamic_cast<FormalsList*> ($3),dynamic_cast<FormalDecl*> ($1));};//done
+FormalDecl :  	 Type ID {$$= new FormalDecl (dynamic_cast<Type*> ($1),$2);}//done
+								 | EnumType ID {$$= new FormalDecl (dynamic_cast<EnumType*> ($1),$2);};//done
+EnumeratorList : Enumerator  {$$= new EnumeratorList (dynamic_cast<Enumerator*> ($1));}//done
+								 | EnumeratorList COMMA Enumerator {$$= new EnumeratorList (dynamic_cast<EnumeratorList*> ($1),dynamic_cast<Enumerator*> ($2));};//done
+Enumerator : 		 ID {$$= new Enumerator ($1);};//done
+Statements : 	   Statement {$$= new Statements (dynamic_cast<Statement*> ($1));}//done
+								 | Statements Statement {$$= new Statements (dynamic_cast<Statements*> ($1), dynamic_cast<Statement*> ($2));};//done
+Statement : 		 LBRACE OS Statements CS RBRACE {$$= new Statement (dynamic_cast<Statements*> ($1));}//done
+								 | Type ID SC {$$= new Statement (dynamic_cast<Type*> ($1),$2);}//done
+								 | EnumType ID SC {$$= new Statement (dynamic_cast<EnumType*> ($1),$2);}//done
+								 | EnumDecl {$$= new Statement (dynamic_cast<EnumDecl*> ($1));}//done
+								 | Type ID ASSIGN Exp SC {$$= new Statement (dynamic_cast<Type*> ($1),$2,dynamic_cast<Exp*> ($4));}//done
+								 | EnumType ID ASSIGN Exp SC {$$= new Statement (dynamic_cast<EnumType*> ($1),$2,dynamic_cast<Exp*> ($4));}//done
+								 | ID ASSIGN Exp SC {$$= new Statement ($1, dynamic_cast<Exp*> ($3));}//done
+								 | Call SC {$$= new Statement (dynamic_cast<Call*> ($1));}//done
+								 | RETURN SC {$$= new Statement ("void");}//done
+								 | RETURN Exp SC {$$= new Statement (dynamic_cast<Exp*> ($2));}//done
+								 | IF LPAREN Exp RPAREN OS Statement CS {$$= new Statement (dynamic_cast<Exp*> ($3),dynamic_cast<Statement*> ($6));}//done
+								 | IF LPAREN Exp RPAREN OS Statement CS ELSE OS Statement CS {$$= new Statement (dynamic_cast<Exp*> ($3),dynamic_cast<Statement*> ($6),dynamic_cast<Statement*> ($10));}//done
+								 | WHILE LPAREN Exp RPAREN {inLoop();} OS Statement CS {$$= new Statement ($1,dynamic_cast<Exp*> ($3),dynamic_cast<Statement*> ($7)); outLoop();}//done
+								 | BREAK SC {$$= new Statement ($1);}//done
+								 | CONTINUE SC {$$= new Statement ($1);};//done
+Call :       	   ID LPAREN ExpList RPAREN {$$= new Call ($1,dynamic_cast<ExpList*> ($3));}//done
+								 | ID LPAREN RPAREN {$$= new Call ($1);};//done
+ExpList : 		 	 Exp {$$= new ExpList (dynamic_cast<Exp*> ($1));}//done
+								 | Exp COMMA ExpList {$$= new ExpList (dynamic_cast<Exp*> ($1),dynamic_cast<ExpList*> ($3));};//done
+Type : 		 			 INT {$$= new Type ($1);}////done
+								 | BYTE {$$= new Type ($1);}//done
+								 | BOOL {$$= new Type ($1);};//done
+EnumType : 	  	 ENUM ID {$$= new EnumType($1,$2);};//done
+Exp :      	  	 LPAREN Exp RPAREN {$$= new Exp(dynamic_cast<Exp*> ($2));}//done
+								 | Exp AND Exp {$$= new Exp(dynamic_cast<Exp*> ($1),$2,dynamic_cast<Exp*> ($3),"AND");}//done
+								 | Exp OR Exp {$$= new Exp(dynamic_cast<Exp*> ($1),$2,dynamic_cast<Exp*> ($3),"OR");}//done
+								 | ID {$$= new Exp($1);}//done
+								 | Call {$$= new Exp(dynamic_cast<Call*> ($1));}//done
+								 | NUM {$$= new Exp($1,"num");}//done
+								 | NUM B {$$= new Exp($1,"B");}//done
+  						   | STRING {$$= new Exp($1,"string");}//done
+								 | TRUE {$$= new Exp($1,"bool");}//done
+								 | FALSE {$$= new Exp($1,"bool");}//done
+								 | NOT Exp {$$= new Exp($1,dynamic_cast<Exp*> ($2));}//done
+								 | Exp RELOPL Exp {$$= new Exp(dynamic_cast<Exp*> ($1),$2,dynamic_cast<Exp*> ($3),"RELOPL");}//done
+								 | Exp RELOPN Exp {$$= new Exp(dynamic_cast<Exp*> ($1),$2,dynamic_cast<Exp*> ($3),"RELOPN");}//done
+  						   | Exp ADD Exp {$$= new Exp(dynamic_cast<Exp*> ($1),$2,dynamic_cast<Exp*> ($3),"ADD");}//done
+							   | Exp MUL Exp {$$= new Exp(dynamic_cast<Exp*> ($1),$2,dynamic_cast<Exp*> ($3),"MUL");}//done
+							   | LPAREN Type RPAREN Exp {$$= new Exp(dynamic_cast<Type*> ($1),dynamic_cast<Exp*> ($4));};//done
 
 OS:						 		{openScope();};
 CS:								{closeScope();};

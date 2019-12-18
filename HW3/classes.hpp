@@ -6,11 +6,10 @@
 #include <vector>
 #include <stack>
 #include "hw3_output.hpp"
-
 extern int yylineno;
 using namespace std;
-string currFucn;
-int loopCount = 0;
+static string currFucn;
+static int loopCount = 0;
 
 //Single entry for symbol table
 class Entry {
@@ -59,15 +58,15 @@ static vector<EnumTable *> enumsStack;//will hold all the enums that were define
 static vector<string> TYPES = {"void", "int", "byte", "bool", "string"};
 
 
-void inLoop() {
+static void inLoop() {
     loopCount++;
 }
 
-void outLoop() {
+static void outLoop() {
     loopCount--;
 }
 
-void openScope() {
+static void openScope() {
     auto newScope = new SymbolTable;
     tablesStack.emplace_back(newScope);
     auto newEnumScope = new EnumTable;
@@ -75,7 +74,7 @@ void openScope() {
     offsetsStack.push_back(offsetsStack.back());
 }
 
-void closeScope() {
+static void closeScope() {
     output::endScope();
     SymbolTable *scope = tablesStack.back();
     for (auto i:scope->lines) {//printing all the variables(not enumDef) and functions
@@ -111,7 +110,7 @@ void closeScope() {
 }
 
 
-bool identifierExists(string str) {
+static bool identifierExists(string str) {
     for (int i = tablesStack.size() - 1; i >= 0; i--) {
         for (int j = 0; j < tablesStack[i]->lines.size(); ++j) {
             if (tablesStack[i]->lines[j]->name == str)
@@ -144,9 +143,14 @@ public:
     Node() {
         value = "";
     }
+
+    virtual ~Node(){};
 };
 
+#define YYSTYPE Node*
+
 class Type : public Node {
+public:
     Type(Node *type) : Node(type->value) {};
 };
 
@@ -299,7 +303,7 @@ public:
 };
 
 class EnumType : public Node {
-
+public:
     EnumType(Node *Enum, Node *id) {
         for (int i = enumsStack.size() - 1; i >= 0; i--) {
             for (int j = 0; j < enumsStack[i]->enumLines.size(); ++j) {
@@ -323,14 +327,14 @@ public:
         expList.emplace_back(exp);
     }
 
-    ExpList(ExpList *expList, Exp *exp) {
+    ExpList(Exp *exp,ExpList *expList ) {
         this->expList = vector<Exp>(expList->expList);
         this->expList.emplace_back(exp);
     }
 };
 
 class Call : public Node {
-
+public:
     Call(Node* ID, ExpList* list){
         auto global = tablesStack.front()->lines;
         for(auto i:global){
@@ -383,11 +387,9 @@ class Call : public Node {
     }
 };
 
-Exp::Exp(Call *call) {
-    this->type = call->value;
-}
 
 class Enumerator : public Node {
+public:
     Enumerator(Node *id) : Node(id->value) {};
 };
 
@@ -466,7 +468,7 @@ public:
 
 };
 
-void enterArguments(Formals *fm) {
+static void enterArguments(Formals *fm) {
     for (int i = 0; i < fm->formals.size(); i++) {
         auto temp = new Entry(fm->formals[i]->value, fm->formals[i]->type,
                               0 - i - 1);
@@ -497,6 +499,7 @@ public:
 };
 
 class Enums: public Node{
+public:
     Enums(){};
 };
 
@@ -767,12 +770,14 @@ public:
 
 
 class Statements : public Node {
-    Statements(Statement *st);
+public:
+    Statements(Statement *st){};
 
-    Statements(Statements *sts, Statement *st);
+    Statements(Statements *sts, Statement *st){};
 };
 
 class Funcs : public Node {
+public:
     Funcs(){};
 };
 
