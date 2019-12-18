@@ -2,7 +2,7 @@
 
 /* Declarations section */
 #include <stdio.h>
-#define YYSTYPE int
+#define YYSTYPE Node*
 #include "parser.tab.hpp"
 #include "output.hpp"
 %}

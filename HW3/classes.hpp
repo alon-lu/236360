@@ -10,6 +10,7 @@
 extern int yylineno;
 using namespace std;
 string currFucn;
+int loopCount = 0;
 
 //Single entry for symbol table
 class Entry {
@@ -57,6 +58,15 @@ static vector<int> offsetsStack;
 static vector<EnumTable *> enumsStack;//will hold all the enums that were defined
 static vector<string> TYPES = {"void", "int", "byte", "bool", "string"};
 
+
+void inLoop() {
+    loopCount++;
+}
+
+void outLoop() {
+    loopCount--;
+}
+
 void openScope() {
     auto newScope = new SymbolTable;
     tablesStack.emplace_back(newScope);
@@ -74,7 +84,8 @@ void closeScope() {
         } else {
             auto retVal = i->types.back();
             i->types.pop_back();
-            output::printID(i->name, i->offset, output::makeFunctionType(retVal, i->types));//functions
+            output::printID(i->name, i->offset, output::makeFunctionType(retVal,
+                                                                         i->types));//functions
         }
     }
     EnumTable *enumScope = enumsStack.back();
@@ -139,12 +150,16 @@ class Type : public Node {
     Type(Node *type) : Node(type->value) {};
 };
 
+class Call;//declaring class Call son of node
+
 class Exp : public Node {
 public:
     string type;
     bool boolVal;
 
+    // handles NUM,B,string,true,false
     Exp(Node *terminal, string str) : Node(terminal->value) {
+        this->type = "";
         if (str.compare("num") == 0) {
             type = "int";
         }
@@ -168,21 +183,28 @@ public:
         }
     };
 
+
     Exp(Node *Not, Exp *exp) {
+        this->type = "";
         if (exp->type != "bool") {
             output::errorMismatch(yylineno);
             exit(0);
         }
+        this->type = "bool";
         boolVal = !boolVal;
     }
 
     ///handels RELOP,MUL,ADD,OR,AND
     Exp(Exp *left, Node *op, Exp *right, string str) {
-        if ((left->type.compare("byte") == 0 || left->type.compare("int") == 0) &&
-            (right->type.compare("byte") == 0 || right->type.compare("int") == 0)) {// both operands must be numbers
+        this->type = "";
+        if ((left->type.compare("byte") == 0 ||
+             left->type.compare("int") == 0) &&
+            (right->type.compare("byte") == 0 ||
+             right->type.compare("int") == 0)) {// both operands must be numbers
 
-            int ileft = stoi(left->value), iright = stoi(right->value);//handiling RELOP,mul and add
+            int ileft = stoi(left->value), iright = stoi(right->value);
             if (str.compare("RELOPL") == 0 || str.compare("RELOPN") == 0) {
+                this->type = "bool";
                 if (op->value.compare("==") == 0) {
                     boolVal = (ileft == iright ? true : false);
                 } else if (op->value.compare("!=") == 0) {
@@ -198,6 +220,10 @@ public:
                 }
             }
             if (str.compare("ADD") == 0 || str.compare("MUL") == 0) {
+                this->type = "byte";
+                if (left->type == "int" || right->type == "int") {
+                    this->type = "int";
+                }
                 if (op->value.compare("+") == 0) {
                     value = to_string(ileft + iright);
                 } else if (op->value.compare("-") == 0) {
@@ -208,9 +234,11 @@ public:
                     value = to_string(ileft / iright);
                 }
             }
-        } else if ((left->type.compare("bool") == 0 && right->type.compare("bool") == 0)) {//both are bool
+        } else if ((left->type.compare("bool") == 0 &&
+                    right->type.compare("bool") == 0)) {//both are bool
             //handiling AND OR
             bool bleft = true, bright = true;
+            this->type = "bool";
             if (left->value.compare("false") == 0)
                 bleft = false;
             if (right->value.compare("false") == 0)
@@ -240,7 +268,9 @@ public:
         boolVal = exp->boolVal;
     }
 
+// LPAREN Type RPAREN Exp
     Exp(Type *type, Exp *exp) {//cant see type because it is announced later
+        this->type = "";
         if (exp->type.compare(0, 5, "enum ")) {//exp type is enum
             if (type->value == "int") {//casting into int
                 value = exp->value;
@@ -249,7 +279,9 @@ public:
         }
     }
 
+//  ID
     Exp(Node *ID) {
+        this->type = "";
         for (int i = tablesStack.size() - 1; i >= 0; i--) {
             for (int j = 0; j < tablesStack[i]->lines.size(); ++j) {
                 if (tablesStack[i]->lines[j]->name == ID->value) {
@@ -262,11 +294,13 @@ public:
         exit(0);
     }
 
+    Exp(Call* call);
+
 };
 
 class EnumType : public Node {
-    EnumType(Node *Enum, Node *id) {
 
+    EnumType(Node *Enum, Node *id) {
         for (int i = enumsStack.size() - 1; i >= 0; i--) {
             for (int j = 0; j < enumsStack[i]->enumLines.size(); ++j) {
                 if (enumsStack[i]->enumLines[j]->name == id->value) {
@@ -297,8 +331,61 @@ public:
 
 class Call : public Node {
 
+    Call(Node* ID, ExpList* list){
+        auto global = tablesStack.front()->lines;
+        for(auto i:global){
+            if(i->name == ID->value){
+                if(i->types.size() == 1){
+                    output::errorUndefFunc(yylineno, ID->value);
+                    exit(0);
+                }
+                if(i->types.size() == 1 + list->expList.size()){
+                    for(int j = 0; j < list->expList.size(); j++){
+                        if(list->expList[j].type != i->types[j]){
+                            i->types.pop_back();
+                            output::errorPrototypeMismatch(yylineno, i->name, i->types);
+                            exit(0);
+                        }
+                    }
+                    this->value = i->types.back();
+                    return;//if we got here without errors, we found our function
+                }else{
+                    i->types.pop_back();
+                    output::errorPrototypeMismatch(yylineno, i->name, i->types);
+                    exit(0);
+                }
+            }
+        }
+        output::errorUndefFunc(yylineno, ID->value);//if we found our function we're not supposed to get here
+        exit(0);
+    }
 
+    Call(Node* ID){
+        auto global = tablesStack.front()->lines;
+        for(auto i:global){
+            if(i->name == ID->value){
+                if(i->types.size() == 1){
+                    output::errorUndefFunc(yylineno, ID->value);
+                    exit(0);
+                }
+                if(i->types.size() == 2){
+                    this->value = i->types.back();
+                    return;//if we got here without errors, we found our function
+                }else{
+                    vector<string> temp = {""};
+                    output::errorPrototypeMismatch(yylineno, i->name, temp);
+                    exit(0);
+                }
+            }
+        }
+        output::errorUndefFunc(yylineno, ID->value);//if we found our function we're not supposed to get here
+        exit(0);
+    }
 };
+
+Exp::Exp(Call *call) {
+    this->type = call->value;
+}
 
 class Enumerator : public Node {
     Enumerator(Node *id) : Node(id->value) {};
@@ -341,14 +428,14 @@ public:
         for (int i = enumsStack.size() - 1; i >= 0; i--) {
             for (int j = 0; j < enumsStack[i]->enumLines.size(); ++j) {
                 int len = enumsStack[i]->enumLines[j]->name.length();
-                if (str.compare(5, len - 5, enumsStack[i]->enumLines[j]->name) == 0) {
+                if (str.compare(5, len - 5,
+                                enumsStack[i]->enumLines[j]->name) == 0) {
                     return true;
                 }
             }
         }
         return false;
     }
-
 
 };
 
@@ -368,13 +455,24 @@ public:
 };
 
 class Formals : public Node {
+public:
     vector<FormalDecl *> formals;
 
+    Formals(){};
+
     Formals(FormalsList *flist) {
-        formals = vector<FormalDecl *>(flist->formals);
+        this->formals = vector<FormalDecl *>(flist->formals);
     }
 
 };
+
+void enterArguments(Formals *fm) {
+    for (int i = 0; i < fm->formals.size(); i++) {
+        auto temp = new Entry(fm->formals[i]->value, fm->formals[i]->type,
+                              0 - i - 1);
+        tablesStack.back()->lines.push_back(temp);
+    }
+}
 
 class RetType : public Node {
 public:
@@ -398,29 +496,39 @@ public:
 
 };
 
-//class Enums: public Node{
-//
-//};
+class Enums: public Node{
+    Enums(){};
+};
 
 class FuncDecl : public Node {
-//public:
-//    vector<string> types;
-//
-//    FuncDecl(RetType* retType, Node* ID, Formals* args){
-//        value = ID->value;
-//        types = args.types;
-//        types.emplace_back(retType->value);
-//    }
+public:
+    vector<string> types;
+
+    FuncDecl(RetType* retType, Node* ID, Formals* args){
+        value = ID->value;
+        if(args->formals.size() != 0){
+            for (int i = 0; i < args->formals.size(); i++) {
+                types.push_back(args->formals[i]->type);
+            }
+        }else{
+            types.emplace_back("void");
+        }
+        types.emplace_back(retType->value);
+
+        auto temp = new Entry(this->value, this->types, -420);
+        tablesStack.back()->lines.push_back(temp);
+    }
 };
+
 class Statements;
 
 class Statement : public Node {
 public:
     string data;
 
+//      Type ID SC
     Statement(Type *type, Node *id) {
         //checking if the id already defined
-
         if (identifierExists(id->value)) {
             output::errorDef(yylineno, id->value);
             exit(0);
@@ -428,34 +536,39 @@ public:
         int offset = *offsetsStack.end()++;
         auto temp = new Entry(id->value, type->value, offset);
         tablesStack.back()->lines.emplace_back(temp);
-        data="type id";
+        data = "type id";
     }
 
+//      EnumType ID SC
     Statement(EnumType *enumType, Node *id) {
         bool flag = false;
         for (int i = enumsStack.size() - 1; i >= 0; i--) {
             for (int j = 0; j < enumsStack[i]->enumLines.size(); ++j) {
                 int len = enumsStack[i]->enumLines[j]->name.length();
-                if (id->value.compare(5, len - 5, enumsStack[i]->enumLines[j]->name) == 0) {
+                if (id->value.compare(5, len - 5,
+                                      enumsStack[i]->enumLines[j]->name) == 0) {
                     flag = true;
                     break;
                 }
             }
         }
         if (flag == false) {
-            output::errorUndefEnum(yylineno, enumType->value.substr(5, enumType->value.size() - 5));
+            output::errorUndefEnum(yylineno, enumType->value.substr(5,
+                                                                    enumType->value.size() -
+                                                                    5));
             exit(0);
         }
         if (identifierExists(id->value)) {
             output::errorDef(yylineno, id->value);
             exit(0);
         }
-        data="enumType id";
+        data = "enumType id";
         int offset = *offsetsStack.end()++;
         auto temp = new Entry(id->value, enumType->value, offset);
         tablesStack.back()->lines.emplace_back(temp);
     }
 
+//      Type ID ASSIGN Exp SC
     Statement(Type *type, Node *id, Exp *exp) {
         //checking if the id already defined
         if (exp->type != type->value) {
@@ -473,14 +586,16 @@ public:
         tablesStack.back()->lines.emplace_back(temp);
     }
 
-
+//      EnumType ID ASSIGN Exp SC
     Statement(EnumType *enumType, Node *id, Exp *exp) {
         bool flag = false;
         vector<string> enumVals;
         for (int i = enumsStack.size() - 1; i >= 0; i--) {
             for (int j = 0; j < enumsStack[i]->enumLines.size(); ++j) {
                 int len = enumsStack[i]->enumLines[j]->name.length();
-                if (enumType->value.compare(5, len - 5, enumsStack[i]->enumLines[j]->name) == 0) {
+                if (enumType->value.compare(5, len - 5,
+                                            enumsStack[i]->enumLines[j]->name) ==
+                    0) {
                     flag = true;
                     enumVals = enumsStack[i]->enumLines[j]->values;
                     break;
@@ -489,7 +604,9 @@ public:
         }
 
         if (flag == false) {
-            output::errorUndefEnum(yylineno, enumType->value.substr(5, enumType->value.size() - 5));
+            output::errorUndefEnum(yylineno, enumType->value.substr(5,
+                                                                    enumType->value.size() -
+                                                                    5));
             exit(0);
         }
         if (identifierExists(id->value)) {
@@ -523,16 +640,21 @@ public:
         tablesStack.back()->lines.emplace_back(temp);
     }
 
+//    EnumDecl
     Statement(EnumDecl *enumDecl) {
         value = "was enumdecl";
     }
 
+//    ID ASSIGN Exp SC
     Statement(Node *id, Exp *exp) {
         for (int i = tablesStack.size() - 1; i >= 0; i--) {
-            for (int j = 0; j < tablesStack[i]->lines.size(); ++j) {//finding in symbol table
+            for (int j = 0; j <
+                            tablesStack[i]->lines.size(); ++j) {//finding in symbol table
                 if (tablesStack[i]->lines[j]->name == id->value) {
-                    if (tablesStack[i]->lines[j]->types.size() == 1) {//making sure this is not a function
-                        if (tablesStack[i]->lines[j]->types[0] == exp->type) {//checking types
+                    if (tablesStack[i]->lines[j]->types.size() ==
+                        1) {//making sure this is not a function
+                        if (tablesStack[i]->lines[j]->types[0] ==
+                            exp->type) {//checking types
                             data = exp->value;
                             return;
                         } else {
@@ -546,16 +668,20 @@ public:
                 }
             }
         }
-        output::errorUndef(yylineno, id->value);//id not found in the symbol table
+        output::errorUndef(yylineno,
+                           id->value);//id not found in the symbol table
         exit(0);
     }
 
+//      RETURN SC; from a fucntion with a retVal of void
     Statement(string retType) {
         for (int i = tablesStack.size() - 1; i >= 0; i--) {
-            for (int j = 0; j < tablesStack[i]->lines.size(); ++j) {//finding in symbol table
+            for (int j = 0; j <
+                            tablesStack[i]->lines.size(); ++j) {//finding in symbol table
                 if (tablesStack[i]->lines[j]->name == currFucn) {
                     int size = tablesStack[i]->lines[j]->types.size();
-                    if (tablesStack[i]->lines[j]->types[size - 1] == retType) {//checking types
+                    if (tablesStack[i]->lines[j]->types[size - 1] ==
+                        retType) {//checking types
                         data = "ret val of void";
                         return;
                     } else {
@@ -569,13 +695,16 @@ public:
         exit(0);
     }
 
+//    RETURN Exp SC
     Statement(Exp *exp) {
         string retType = exp->type;
         for (int i = tablesStack.size() - 1; i >= 0; i--) {
-            for (int j = 0; j < tablesStack[i]->lines.size(); ++j) {//finding in symbol table
+            for (int j = 0; j <
+                            tablesStack[i]->lines.size(); ++j) {//finding in symbol table
                 if (tablesStack[i]->lines[j]->name == currFucn) {
                     int size = tablesStack[i]->lines[j]->types.size();
-                    if (tablesStack[i]->lines[j]->types[size - 1] == retType) {//checking types
+                    if (tablesStack[i]->lines[j]->types[size - 1] ==
+                        retType) {//checking types
                         data = exp->value;
                         return;
                     } else {
@@ -589,18 +718,62 @@ public:
         exit(0);
     }
 
-    Statement(Statements* st){
-        data="this was a block";
+//    LBRACE Statements RBRACE
+    Statement(Statements *sts) {
+        data = "this was a block";
     }
+
+    Statement(Exp *exp, Statement *st) {
+        if (exp->type != "bool") {
+            output::errorMismatch(yylineno);
+            exit(0);
+        }
+        data = "this was an if";
+    }
+
+    Statement(Exp *exp, Statement *st1, Statement *st2) {
+        if (exp->type != "bool") {
+            output::errorMismatch(yylineno);
+            exit(0);
+        }
+        data = "this was an if and else";
+    }
+
+    Statement(Node *While, Exp *exp, Statement *st) {
+        if (exp->type != "bool") {
+            output::errorMismatch(yylineno);
+            exit(0);
+        }
+        data = "this was a while";
+    }
+
+// handling break and continue
+    Statement(Node *word) {
+        if (loopCount == 0) {
+            if (word->value == "break") {
+                output::errorUnexpectedBreak(yylineno);
+                exit(0);
+            }
+            output::errorUnexpectedContinue(yylineno);
+            exit(0);
+        }
+        data = "this was a break or continue";
+    }
+
+    Statement(Call* call){
+        data = "this was a call for a function";
+    };
 };
 
 
 class Statements : public Node {
+    Statements(Statement *st);
 
+    Statements(Statements *sts, Statement *st);
 };
 
 class Funcs : public Node {
-
+    Funcs(){};
 };
 
 
@@ -610,11 +783,9 @@ public:
     Program() {
         SymbolTable *global = new SymbolTable();
         const vector<string> temp = {"string", "void"};
-        auto print = new Entry("print", temp, offsetsStack.back());
-        *(offsetsStack.end())++;
+        auto print = new Entry("print", temp, -420);
         const vector<string> temp2 = {"int", "void"};//to do arg of byte also
-        auto printi = new Entry("printi", temp2, offsetsStack.back());
-        *(offsetsStack.end())++;
+        auto printi = new Entry("printi", temp2, -420);
         global->lines.emplace_back(print);
         global->lines.emplace_back(printi);
         tablesStack.emplace_back(global);

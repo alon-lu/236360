@@ -43,66 +43,68 @@
 %nonassoc XX;
 %%
 
-Program :		  	 {$$=Program PROGRAM;} Enums Funcs;
-Funcs :	     	    %prec XXX {$$=Funcs FUNCS;}
-								 | FuncDecl Funcs %prec XX{$$=Funcs FUNCS};
+Program :		  	 {$$= new Program PROGRAM();} Enums Funcs;
+Funcs :	     	    %prec XXX {$$= new Funcs FUNCS();}//done
+								 | FuncDecl Funcs %prec XX{$$= new Funcs FUNCS();};//done
+FuncDecl :   	   RetType ID LPAREN Formals RPAREN{$$= new FuncsDecl FUNCDECL($1,$2,$4);} LBRACE OS {enterArguments($4);} Statements CS RBRACE ;//done
+Enums :			  	   {$$= new Enums ENUMS();} //epsilon
+								 | EnumDecl Enums {$$= new Enums ENUMS();};//this is empty on purpose
+EnumDecl :   	   ENUM ID LBRACE EnumeratorList RBRACE SC {$$= new EnumDecl ENUMDECL($2,$4);};
+RetType : 	  	 Type {$$= new RetType RETTYPE($1);}
+								 | VOID {$$= new RetType RETTYPE($1);};
+Formals :     	   {$$= new Formals FORMALS();}//done
+								 |FormalsList {$$= new Formals FORMALS($1);};//done
+FormalsList : 	 FormalDecl {$$= new FormalsList FORMALLIST($1);}//done
+								 | FormalDecl COMMA FormalsList {$$= new FormalsList FORMALLIST($2,$1);};//done
+FormalDecl :  	 Type ID {$$= new FormalDecl FORMALDECL($1,$2);}//done
+								 | EnumType ID {$$= new FormalDecl FORMALDECL($1,$2);};//done
+EnumeratorList : Enumerator  {$$= new EnumeratorList ENUMERATORLIST($1);}//done
+								 | EnumeratorList COMMA Enumerator {$$= new EnumeratorList ENUMERATORLIST($1,$2);};//done
+Enumerator : 		 ID {$$= new Enumerator ENUMARATOR($1);};//done
+Statements : 	   Statement {$$= new Statements STATEMENTS($1);}//done
+								 | Statements Statement {$$= new Statements STATEMENTS($1, $2);};//done
+Statement : 		 LBRACE OS Statements CS RBRACE {$$= new Statement STATEMENT($3);}//done
+								 | Type ID SC {$$= new Statement STATEMENT($1,$2);}//done
+								 | EnumType ID SC {$$= new Statement STATEMENT($1,$2);}//done
+								 | EnumDecl {$$= new Statement STATEMENT($1);}//done
+								 | Type ID ASSIGN Exp SC {$$= new Statement STATEMENT($1,$2,$3);}//done
+								 | EnumType ID ASSIGN Exp SC {$$= new Statement STATEMENT($1,$2,$3);}//done
+								 | ID ASSIGN Exp SC {$$= new Statement STATEMENT($1, $3);}//done
+								 | Call SC {$$= new Statement STATEMENT($1);}//done
+								 | RETURN SC {$$= new Statement STATEMENT("void");}//done
+								 | RETURN Exp SC {$$= new Statement STATEMENT($2);}//done
+								 | IF LPAREN Exp RPAREN OS Statement CS {$$= new Statement STATEMENT($3,$6);}//done
+								 | IF LPAREN Exp RPAREN OS Statement CS ELSE OS Statement CS {$$= new Statement STATEMENT($3,$6,$10);}//done
+								 | WHILE LPAREN Exp RPAREN {inLoop();} OS Statement CS {$$= new Statement STATEMENT($1,$3,$7); outLoop();}//done
+								 | BREAK SC {$$= new Statement STATEMENT($1);}//done
+								 | CONTINUE SC {$$= new Statement STATEMENT($1);};//done
+Call :       	   ID LPAREN ExpList RPAREN {$$= new Call CALL($1,$3);}//done
+								 | ID LPAREN RPAREN {$$= new Call CALL($1);};//done
+ExpList : 		 	 Exp {$$= new ExpList EXPLIST($1);}//done
+								 | Exp COMMA ExpList {$$= new ExpList EXPLIST($1,$3)};//done
+Type : 		 			 INT {$$= new Type TYPE($1);}////done
+								 | BYTE {$$= new Type TYPE($1);}//done
+								 | BOOL {$$= new Type TYPE($1);};//done
+EnumType : 	  	 ENUM ID {$$= new EnumType ENUMTYPE($1,$2);};//done
+Exp :      	  	 LPAREN Exp RPAREN {$$= new Exp EXP($2);}//done
+								 | Exp AND Exp {$$= new Exp EXP($1,$2,$3,"AND");}//done
+								 | Exp OR Exp {$$= new Exp EXP($1,$2,$3,"OR");}//done
+								 | ID {$$= new Exp EXP($1);}//done
+								 | Call {$$= new Exp EXP($1);}//done
+								 | NUM {$$= new Exp EXP($1,"num");}//done
+								 | NUM B {$$= new Exp EXP($1,"B";}//done
+  						   | STRING {$$= new Exp EXP($1,"string");}//done
+								 | TRUE {$$= new Exp EXP($1,"bool");}//done
+								 | FALSE {$$= new Exp EXP($1,"bool");}//done
+								 | NOT Exp {$$= new Exp EXP($1,$2);}//done
+								 | Exp RELOPL Exp {$$= new Exp EXP($1,$2,$3,"RELOPL");}//done
+								 | Exp RELOPN Exp {$$= new Exp EXP($1,$2,$3,"RELOPN");}//done
+  						   | Exp ADD Exp {$$= new Exp EXP($1,$2,$3,"ADD");}//done
+							   | Exp MUL Exp {$$= new Exp EXP($1,$2,$3,"MUL");}//done
+							   | LPAREN Type RPAREN Exp {$$= new Exp EXP($2,$4);};//done
 
-FuncDecl :   	   RetType ID LPAREN Formals RPAREN LBRACE Statements RBRACE {$$=FuncsDecl FUNCDECL($1,$2,$4)};//todo //opening scope
-Enums :			  	   //epsilon
-								 | EnumDecl Enums {};//this is empty on purpose
-EnumDecl :   	   ENUM ID LBRACE EnumeratorList RBRACE SC {$$=EnumDecl ENUMDECL($2,$4);};
-RetType : 	  	 Type {$$=RetType RETTYPE($1);}
-								 | VOID {$$=RetType RETTYPE($1);};
-Formals :     	   {}
-								 |FormalsList {$$=Formals FORMALS($1);};
-FormalsList : 	 FormalDecl {$$=FormalsList FORMALLIST($1);}
-								 | FormalDecl COMMA FormalsList {$$=FormalsList FORMALLIST($2,$1);};
-FormalDecl :  	 Type ID {$$=FormalDecl FORMALDECL($1,$2);}//checking that the types exist
-								 | EnumType ID {$$=FormalDecl FORMALDECL($1,$2);};
-EnumeratorList : Enumerator  {$$=EnumeratorList ENUMERATORLIST($1);}
-								 | EnumeratorList COMMA Enumerator {$$=EnumeratorList ENUMERATORLIST($1,$2);};
-Enumerator : 		 ID {$$=Enumerator ENUMARATOR($1);};
-Statements : 	   Statement {output::printProductionRule(19);}
-								 | Statements Statement {output::printProductionRule(20);};
-Statement : 		 LBRACE Statements RBRACE {$$=Statement STATEMENT($2);}//opening scope
-								 | Type ID SC {$$=Statement STATEMENT($1,$2);}//done
-								 | EnumType ID SC {$$=Statement STATEMENT($1,$2);}//done
-								 | EnumDecl {$$=Statement STATEMENT($2);}
-								 | Type ID ASSIGN Exp SC {$$=Statement STATEMENT($1,$2,$3);}//done
-								 | EnumType ID ASSIGN Exp SC {$$=Statement STATEMENT($1,$2,$3);}//done
-								 | ID ASSIGN Exp SC {$$=Statement STATEMENT($2);}
-								 | Call SC {$$=Statement STATEMENT($2);}
-								 | RETURN SC {$$=Statement STATEMENT($2);}
-								 | RETURN Exp SC {$$=Statement STATEMENT($2);}
-								 | IF LPAREN Exp RPAREN Statement {$$=Statement STATEMENT($2);}//opening scope
-								 | IF LPAREN Exp RPAREN Statement ELSE Statement {$$=Statement STATEMENT($2);}//opening 2 scope
-								 | WHILE LPAREN Exp RPAREN Statement {$$=Statement STATEMENT($1,$3,$4);}//opening scope
-								 | BREAK SC {$$=Statement STATEMENT($1);}
-								 | CONTINUE SC {$$=Statement STATEMENT($1);};
-Call :       	   ID LPAREN ExpList RPAREN {output::printProductionRule(36);}
-								 | ID LPAREN RPAREN {output::printProductionRule(37);};
-ExpList : 		 	 Exp {$$=ExpList EXPLIST($1);}
-								 | Exp COMMA ExpList {$$=ExpList EXPLIST($1,$3)};
-Type : 		 			 INT {$$=Type TYPE($1)};//
-								 | BYTE {$$=Type TYPE($1)};
-								 | BOOL {$$=Type TYPE($1)};
-EnumType : 	  	 ENUM ID {$$=EnumType ENUMTYPE($1,$2)};//
-Exp :      	  	 LPAREN Exp RPAREN {$$=Exp EXP($2);}//done
-								 | Exp AND Exp {$$=Exp EXP($1,$2,$3,"AND");}//done
-								 | Exp OR Exp {$$=Exp EXP($1,$2,$3,"OR");}//done
-								 | ID {$$=Exp EXP($1);}//done
-								 | Call {output::printProductionRule(47);}
-								 | NUM {$$=Exp EXP($1,"num");}//done
-								 | NUM B {$$=Exp EXP($1,"B";}//done
-  						   | STRING {$$=Exp EXP($1,"string");}//done
-								 | TRUE {$$=Exp EXP($1,"bool");}//done
-								 | FALSE {$$=Exp EXP($1,"bool");}//done
-								 | NOT Exp {$$=Exp EXP($1,$2);}//done
-								 | Exp RELOPL Exp {$$=Exp EXP($1,$2,$3,"RELOPL");}//done
-								 | Exp RELOPN Exp {$$=Exp EXP($1,$2,$3,"RELOPN");}//done
-  						   | Exp ADD Exp {$$=Exp EXP($1,$2,$3,"ADD");}//done
-							   | Exp MUL Exp {$$=Exp EXP($1,$2,$3,"MUL");}//done
-							   | LPAREN Type RPAREN Exp {$$=Exp EXP($2,$4);};//todo handle casting
+OS:						 		{openScope();};
+CS:								{closeScope();};
 
 %%
 
