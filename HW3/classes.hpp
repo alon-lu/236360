@@ -1,14 +1,23 @@
 #ifndef CLASSES_HPP
 #define CLASSES_HPP
 
+#include <memory>
 #include <iostream>
 #include <string>
 #include <vector>
 #include <stack>
 #include "hw3_output.hpp"
+
+
 extern int yylineno;
 using namespace std;
+
 static string currFucn;
+
+static void endFunc() {
+    currFucn = "";
+}
+
 static int loopCount = 0;
 
 //Single entry for symbol table
@@ -19,21 +28,21 @@ public:
     int offset;
 
     Entry(string name, vector<string> types, int offset) {
-        name.assign(name);
-        types = types;
-        offset = offset;
+        this->name = name;
+        this->types = types;
+        this->offset = offset;
     }
 
     Entry(string name, string types, int offset) {
-        name.assign(name);
+        this->name = name;
         this->types.emplace_back(types);
-        offset = offset;
+        this->offset = offset;
     }
 };
 
 class SymbolTable {
 public:
-    vector<Entry *> lines;//scope table
+    vector<shared_ptr<Entry>> lines;//scope table
     SymbolTable() = default;
 };
 
@@ -47,15 +56,15 @@ public:
 
 class EnumTable {
 public:
-    vector<Enum *> enumLines;//scope table
+    vector<shared_ptr<Enum>> enumLines;//scope table
     EnumTable() = default;
 };
 
 
-static vector<SymbolTable *> tablesStack;
+static vector<shared_ptr<SymbolTable>> tablesStack;
 static vector<int> offsetsStack;
-static vector<EnumTable *> enumsStack;//will hold all the enums that were defined
-static vector<string> TYPES = {"void", "int", "byte", "bool", "string"};
+static vector<shared_ptr<EnumTable>> enumsStack;//will hold all the enums that were defined
+static vector<string> TYPES = {"VOID", "INT", "BYTE", "BOOL", "STRING"};
 
 
 static void inLoop() {
@@ -67,48 +76,64 @@ static void outLoop() {
 }
 
 static void openScope() {
-    auto newScope = new SymbolTable;
+    auto newScope = shared_ptr<SymbolTable>(new SymbolTable);
     tablesStack.emplace_back(newScope);
-    auto newEnumScope = new EnumTable;
+    auto newEnumScope = shared_ptr<EnumTable>(new EnumTable);
     enumsStack.emplace_back(newEnumScope);
     offsetsStack.push_back(offsetsStack.back());
 }
 
 static void closeScope() {
     output::endScope();
-    SymbolTable *scope = tablesStack.back();
+    auto scope = tablesStack.back();
     for (auto i:scope->lines) {//printing all the variables(not enumDef) and functions
         if (i->types.size() == 1) {
             output::printID(i->name, i->offset, i->types[0]);//variables
         } else {
             auto retVal = i->types.back();
             i->types.pop_back();
+            if (i->types.front() == "VOID") {
+                i->types.pop_back();
+            }
+
             output::printID(i->name, i->offset, output::makeFunctionType(retVal,
                                                                          i->types));//functions
         }
     }
-    EnumTable *enumScope = enumsStack.back();
-    for (auto i:enumScope->enumLines) {
-        output::printEnumType(i->name, i->values);
+    auto enumScope = enumsStack.back();
+    for (int j = 0; j < enumScope->enumLines.size(); ++j) {
+        output::printEnumType(enumScope->enumLines[j]->name, enumScope->enumLines[j]->values);
     }
-
     while (scope->lines.size() != 0) {
-        Entry *s = scope->lines.back();
-        delete (s);
         scope->lines.pop_back();
     }
-    delete (scope);
     tablesStack.pop_back();
-
+    offsetsStack.pop_back();
     while (enumScope->enumLines.size() != 0) {
-        Enum *s = enumScope->enumLines.back();
-        delete (s);
         enumScope->enumLines.pop_back();
     }
-    delete (enumScope);
     enumsStack.pop_back();
 }
 
+
+static void endProgram() {
+    auto global = tablesStack.front()->lines;
+    bool mainFound = false;
+    for (int i = 0; i < global.size(); ++i) {
+        if (global[i]->name == "main") {
+            if (global[i]->types.size() == 2) {
+                if (global[i]->types[0] == "VOID" && global[i]->types[1] == "VOID") {
+                    mainFound = true;
+                }
+            }
+        }
+    }
+    if (!mainFound) {//no main function
+        output::errorMainMissing();
+        exit(0);
+    }
+    closeScope();
+}
 
 static bool identifierExists(string str) {
     for (int i = tablesStack.size() - 1; i >= 0; i--) {
@@ -137,17 +162,28 @@ public:
     string value;
 
     Node(string str) {
-        value.assign(str);
+        if (str == "void") {
+            value = "VOID";
+        } else if (str == "bool") {
+            value = "BOOL";
+        } else if (str == "int") {
+            value = "INT";
+        } else if (str == "byte") {
+            value = "BYTE";
+        } else
+            value = str;
+
     }
 
     Node() {
         value = "";
     }
 
-    virtual ~Node(){};
+    virtual ~Node() {};
 };
 
 #define YYSTYPE Node*
+
 
 class Type : public Node {
 public:
@@ -165,13 +201,13 @@ public:
     Exp(Node *terminal, string str) : Node(terminal->value) {
         this->type = "";
         if (str.compare("num") == 0) {
-            type = "int";
+            type = "INT";
         }
-        if (str.compare("string") == 0) {
-            type = "string";
+        if (str.compare("STRING") == 0) {
+            type = "STRING";
         }
-        if (str.compare("bool") == 0) {
-            type = "bool";
+        if (str.compare("BOOL") == 0) {
+            type = "BOOL";
             if (value.compare("true") == 0) {
                 boolVal = true;
             } else {
@@ -183,66 +219,66 @@ public:
                 output::errorByteTooLarge(yylineno, terminal->value);
                 exit(0);
             }
-            type = "byte";
+            type = "BYTE";
         }
     };
 
 
     Exp(Node *Not, Exp *exp) {
         this->type = "";
-        if (exp->type != "bool") {
+        if (exp->type != "BOOL") {
             output::errorMismatch(yylineno);
             exit(0);
         }
-        this->type = "bool";
+        this->type = "BOOL";
         boolVal = !boolVal;
     }
 
     ///handels RELOP,MUL,ADD,OR,AND
     Exp(Exp *left, Node *op, Exp *right, string str) {
         this->type = "";
-        if ((left->type.compare("byte") == 0 ||
-             left->type.compare("int") == 0) &&
-            (right->type.compare("byte") == 0 ||
-             right->type.compare("int") == 0)) {// both operands must be numbers
+        if ((left->type.compare("BYTE") == 0 ||
+             left->type.compare("INT") == 0) &&
+            (right->type.compare("BYTE") == 0 ||
+             right->type.compare("INT") == 0)) {// both operands must be numbers
 
-            int ileft = stoi(left->value), iright = stoi(right->value);
+//            int ileft = stoi(left->value), iright = stoi(right->value);
             if (str.compare("RELOPL") == 0 || str.compare("RELOPN") == 0) {
-                this->type = "bool";
-                if (op->value.compare("==") == 0) {
-                    boolVal = (ileft == iright ? true : false);
-                } else if (op->value.compare("!=") == 0) {
-                    boolVal = (ileft != iright ? true : false);
-                } else if (op->value.compare("<") == 0) {
-                    boolVal = (ileft < iright ? true : false);
-                } else if (op->value.compare(">") == 0) {
-                    boolVal = (ileft > iright ? true : false);
-                } else if (op->value.compare("<=") == 0) {
-                    boolVal = (ileft <= iright ? true : false);
-                } else if (op->value.compare(">=") == 0) {
-                    boolVal = (ileft >= iright ? true : false);
-                }
+                this->type = "BOOL";
+//                if (op->value.compare("==") == 0) {
+//                    boolVal = (ileft == iright ? true : false);
+//                } else if (op->value.compare("!=") == 0) {
+//                    boolVal = (ileft != iright ? true : false);
+//                } else if (op->value.compare("<") == 0) {
+//                    boolVal = (ileft < iright ? true : false);
+//                } else if (op->value.compare(">") == 0) {
+//                    boolVal = (ileft > iright ? true : false);
+//                } else if (op->value.compare("<=") == 0) {
+//                    boolVal = (ileft <= iright ? true : false);
+//                } else if (op->value.compare(">=") == 0) {
+//                    boolVal = (ileft >= iright ? true : false);
+//                }
             }
             if (str.compare("ADD") == 0 || str.compare("MUL") == 0) {
-                this->type = "byte";
-                if (left->type == "int" || right->type == "int") {
-                    this->type = "int";
+                this->type = "BYTE";
+                if (left->type == "INT" || right->type == "INT") {
+                    this->type = "INT";
                 }
-                if (op->value.compare("+") == 0) {
-                    value = to_string(ileft + iright);
-                } else if (op->value.compare("-") == 0) {
-                    value = to_string(ileft - iright);
-                } else if (op->value.compare("*") == 0) {
-                    value = to_string(ileft * iright);
-                } else if (op->value.compare("/") == 0) {
-                    value = to_string(ileft / iright);
-                }
+//                if (op->value.compare("+") == 0) {
+//                    value = to_string(ileft + iright);
+//                } else if (op->value.compare("-") == 0) {
+//                    value = to_string(ileft - iright);
+//                } else if (op->value.compare("*") == 0) {
+//                    value = to_string(ileft * iright);
+//                } else if (op->value.compare("/") == 0) {
+//                    value = to_string(ileft / iright);
+//                }
             }
-        } else if ((left->type.compare("bool") == 0 &&
-                    right->type.compare("bool") == 0)) {//both are bool
+        } else if ((left->type.compare("BOOL") == 0 &&
+                    right->type.compare("BOOL") == 0)) {//both are bool
             //handiling AND OR
             bool bleft = true, bright = true;
-            this->type = "bool";
+            this->type = "BOOL";
             if (left->value.compare("false") == 0)
                 bleft = false;
             if (right->value.compare("false") == 0)
@@ -258,6 +294,9 @@ public:
                         value = "true";
                     else value = "false";
                 }
+            } else {
+                output::errorMismatch(yylineno);
+                exit(0);
             }
         } else {
             output::errorMismatch(yylineno);
@@ -275,10 +314,10 @@ public:
 // LPAREN Type RPAREN Exp
     Exp(Type *type, Exp *exp) {//cant see type because it is announced later
         this->type = "";
-        if (exp->type.compare(0, 5, "enum ")) {//exp type is enum
-            if (type->value == "int") {//casting into int
+        if (exp->type.compare(0, 5, "enum ") == 0) {//exp type is enum
+            if (type->value == "INT") {//casting into int
                 value = exp->value;
-                this->type = "int";
+                this->type = "INT";
             }
         }
     }
@@ -290,7 +329,20 @@ public:
             for (int j = 0; j < tablesStack[i]->lines.size(); ++j) {
                 if (tablesStack[i]->lines[j]->name == ID->value) {
                     this->value = ID->value;
+                    this->type = tablesStack[i]->lines[j]->types.back();
                     return;
+                }
+            }
+        }
+        for (int i = enumsStack.size() - 1; i >= 0; i--) {
+            for (int j = 0; j < enumsStack[i]->enumLines.size(); ++j) {
+                for (int k = 0; k < enumsStack[i]->enumLines[j]->values.size(); ++k) {
+                    if (enumsStack[i]->enumLines[j]->values[k] == ID->value) {
+                        this->value = ID->value;
+                        string XX = "enum";
+                        this->type = XX + " " + enumsStack[i]->enumLines[j]->name;
+                        return;
+                    }
                 }
             }
         }
@@ -298,7 +350,7 @@ public:
         exit(0);
     }
 
-    Exp(Call* call);
+    Exp(Call *call);
 
 };
 
@@ -308,12 +360,13 @@ public:
         for (int i = enumsStack.size() - 1; i >= 0; i--) {
             for (int j = 0; j < enumsStack[i]->enumLines.size(); ++j) {
                 if (enumsStack[i]->enumLines[j]->name == id->value) {
-                    value = Enum->value + id->value;
+                    value = Enum->value + " " + id->value;
                     return;
                 }
             }
         }
         output::errorUndefEnum(yylineno, id->value);
+        exit(0);
     }
 
 
@@ -327,7 +380,7 @@ public:
         expList.emplace_back(exp);
     }
 
-    ExpList(Exp *exp,ExpList *expList ) {
+    ExpList(Exp *exp, ExpList *expList) {
         this->expList = vector<Exp>(expList->expList);
         this->expList.emplace_back(exp);
     }
@@ -335,17 +388,20 @@ public:
 
 class Call : public Node {
 public:
-    Call(Node* ID, ExpList* list){
+    Call(Node *ID, ExpList *list) {
         auto global = tablesStack.front()->lines;
-        for(auto i:global){
-            if(i->name == ID->value){
-                if(i->types.size() == 1){
+        for (auto i:global) {
+            if (i->name == ID->value) {// id found
+                if (i->types.size() == 1) {
                     output::errorUndefFunc(yylineno, ID->value);
                     exit(0);
                 }
-                if(i->types.size() == 1 + list->expList.size()){
-                    for(int j = 0; j < list->expList.size(); j++){
-                        if(list->expList[j].type != i->types[j]){
+                if (i->types.size() == 1 + list->expList.size()) {//checking the number of arguments
+                    for (int j = 0; j < list->expList.size(); j++) {
+                        if (list->expList[j].type == "BYTE" && i->types[j] == "INT") {
+                            continue;
+                        }
+                        if (list->expList[j].type != i->types[j]) {
                             i->types.pop_back();
                             output::errorPrototypeMismatch(yylineno, i->name, i->types);
                             exit(0);
@@ -353,7 +409,7 @@ public:
                     }
                     this->value = i->types.back();
                     return;//if we got here without errors, we found our function
-                }else{
+                } else {
                     i->types.pop_back();
                     output::errorPrototypeMismatch(yylineno, i->name, i->types);
                     exit(0);
@@ -364,18 +420,18 @@ public:
         exit(0);
     }
 
-    Call(Node* ID){
+    Call(Node *ID) {
         auto global = tablesStack.front()->lines;
-        for(auto i:global){
-            if(i->name == ID->value){
-                if(i->types.size() == 1){
+        for (auto i:global) {
+            if (i->name == ID->value) {
+                if (i->types.size() == 1) {
                     output::errorUndefFunc(yylineno, ID->value);
                     exit(0);
                 }
-                if(i->types.size() == 2){
+                if (i->types.size() == 2) {
                     this->value = i->types.back();
                     return;//if we got here without errors, we found our function
-                }else{
+                } else {
                     vector<string> temp = {""};
                     output::errorPrototypeMismatch(yylineno, i->name, temp);
                     exit(0);
@@ -415,14 +471,13 @@ public:
     //Node->value is the ID
 
     FormalDecl(Type *t, Node *id) : Node(id->value), type(t->value) {
-        if (checkingTypes(type) == false) {
-            std::cout << "NOT SUPPOSE TO HAPPENED!!" << std::endl;
-        }
+
     }
 
     FormalDecl(EnumType *t, Node *id) : Node(id->value), type(t->value) {
         if (checkingTypes(type) == false) {
             output::errorUndefEnum(yylineno, type);
+            exit(0);
         }
     }
 
@@ -460,7 +515,7 @@ class Formals : public Node {
 public:
     vector<FormalDecl *> formals;
 
-    Formals(){};
+    Formals() {};
 
     Formals(FormalsList *flist) {
         this->formals = vector<FormalDecl *>(flist->formals);
@@ -470,8 +525,8 @@ public:
 
 static void enterArguments(Formals *fm) {
     for (int i = 0; i < fm->formals.size(); i++) {
-        auto temp = new Entry(fm->formals[i]->value, fm->formals[i]->type,
-                              0 - i - 1);
+        auto temp = shared_ptr<Entry>(new Entry(fm->formals[i]->value, fm->formals[i]->type,
+                                                0 - i - 1));
         tablesStack.back()->lines.push_back(temp);
     }
 }
@@ -490,36 +545,65 @@ public:
             output::errorDef(yylineno, id->value);
             exit(0);
         }
+        for (int i = 0; i < lst->enumerators.size(); ++i) {
+            if (identifierExists(lst->enumerators[i]) || lst->enumerators[i] == id->value) {
+                output::errorDef(yylineno, lst->enumerators[i]);
+                exit(0);
+            }
+            for (int j = i + 1; j < lst->enumerators.size(); ++j) {
+                if (lst->enumerators[i] == lst->enumerators[j]) {
+                    output::errorDef(yylineno, lst->enumerators[i]);
+                    exit(0);
+                }
+            }
+        }
         this->value = id->value;
         enumerators = vector<string>(lst->enumerators);
-        auto enumline = new Enum(id->value, lst->enumerators);
+        auto enumline = shared_ptr<Enum>(new Enum(id->value, lst->enumerators));
         enumsStack.back()->enumLines.emplace_back(enumline);
     }
 
 };
 
-class Enums: public Node{
+class Enums : public Node {
 public:
-    Enums(){};
+    Enums() {};
 };
 
 class FuncDecl : public Node {
 public:
     vector<string> types;
 
-    FuncDecl(RetType* retType, Node* ID, Formals* args){
+    FuncDecl(RetType *retType, Node *ID, Formals *args) {
+        if (identifierExists(ID->value)) {
+            output::errorDef(yylineno, ID->value);
+            exit(0);
+        }
+        for (int i = 0; i < args->formals.size(); ++i) {
+            if (identifierExists(args->formals[i]->value) || args->formals[i]->value == ID->value) {
+                output::errorDef(yylineno, args->formals[i]->value);
+                exit(0);
+            }
+            for (int j = i + 1; j < args->formals.size(); ++j) {
+                if (args->formals[i]->value == args->formals[j]->value) {
+                    output::errorDef(yylineno, args->formals[i]->value);
+                    exit(0);
+                }
+            }
+        }
         value = ID->value;
-        if(args->formals.size() != 0){
+        if (args->formals.size() != 0) {
             for (int i = 0; i < args->formals.size(); i++) {
                 types.push_back(args->formals[i]->type);
             }
-        }else{
-            types.emplace_back("void");
+        } else {
+            types.emplace_back("VOID");
         }
         types.emplace_back(retType->value);
 
-        auto temp = new Entry(this->value, this->types, -420);
+        auto temp = shared_ptr<Entry>(new Entry(this->value, this->types, 0));
         tablesStack.back()->lines.push_back(temp);
+        currFucn = ID->value;
     }
 };
 
@@ -536,8 +620,8 @@ public:
             output::errorDef(yylineno, id->value);
             exit(0);
         }
-        int offset = *offsetsStack.end()++;
-        auto temp = new Entry(id->value, type->value, offset);
+        int offset = offsetsStack.back()++;
+        auto temp = shared_ptr<Entry>(new Entry(id->value, type->value, offset));
         tablesStack.back()->lines.emplace_back(temp);
         data = "type id";
     }
@@ -566,8 +650,8 @@ public:
             exit(0);
         }
         data = "enumType id";
-        int offset = *offsetsStack.end()++;
-        auto temp = new Entry(id->value, enumType->value, offset);
+        int offset = offsetsStack.back()++;
+        auto temp = shared_ptr<Entry>(new Entry(id->value, enumType->value, offset));
         tablesStack.back()->lines.emplace_back(temp);
     }
 
@@ -575,8 +659,9 @@ public:
     Statement(Type *type, Node *id, Exp *exp) {
         //checking if the id already defined
         if (exp->type != type->value) {
-            if (type->value != "int" || exp->type != "byte") {
+            if (type->value != "INT" || exp->type != "BYTE") {
                 output::errorMismatch(yylineno);
+                exit(0);
             }
         }
         if (identifierExists(id->value)) {
@@ -584,8 +669,8 @@ public:
             exit(0);
         }
         data = exp->value;
-        int offset = *offsetsStack.end()++;
-        auto temp = new Entry(id->value, type->value, offset);
+        int offset = offsetsStack.back()++;
+        auto temp = shared_ptr<Entry>(new Entry(id->value, type->value, offset));
         tablesStack.back()->lines.emplace_back(temp);
     }
 
@@ -638,8 +723,8 @@ public:
             exit(0);
         }
 
-        int offset = *offsetsStack.end()++;
-        auto temp = new Entry(id->value, enumType->value, offset);
+        int offset = offsetsStack.back()++;
+        auto temp = shared_ptr<Entry>(new Entry(id->value, enumType->value, offset));
         tablesStack.back()->lines.emplace_back(temp);
     }
 
@@ -700,6 +785,10 @@ public:
 
 //    RETURN Exp SC
     Statement(Exp *exp) {
+        if (exp->type=="VOID"){
+            output::errorMismatch(yylineno);
+            exit(0);
+        }
         string retType = exp->type;
         for (int i = tablesStack.size() - 1; i >= 0; i--) {
             for (int j = 0; j <
@@ -709,6 +798,9 @@ public:
                     if (tablesStack[i]->lines[j]->types[size - 1] ==
                         retType) {//checking types
                         data = exp->value;
+                        return;
+                    } else if (retType == "BYTE" && tablesStack[i]->lines[j]->types[size - 1] == "INT") {
+                        data = exp->value; //allowing the case of retType to be byte in case it was int
                         return;
                     } else {
                         output::errorMismatch(yylineno);
@@ -725,30 +817,15 @@ public:
     Statement(Statements *sts) {
         data = "this was a block";
     }
-
-    Statement(Exp *exp, Statement *st) {
-        if (exp->type != "bool") {
+    // handels if, if else, while
+    Statement(string str,Exp *exp) {
+        if (exp->type != "BOOL") {
             output::errorMismatch(yylineno);
             exit(0);
         }
-        data = "this was an if";
+        data = "this was an if/ if else /while";
     }
 
-    Statement(Exp *exp, Statement *st1, Statement *st2) {
-        if (exp->type != "bool") {
-            output::errorMismatch(yylineno);
-            exit(0);
-        }
-        data = "this was an if and else";
-    }
-
-    Statement(Node *While, Exp *exp, Statement *st) {
-        if (exp->type != "bool") {
-            output::errorMismatch(yylineno);
-            exit(0);
-        }
-        data = "this was a while";
-    }
 
 // handling break and continue
     Statement(Node *word) {
@@ -763,7 +840,7 @@ public:
         data = "this was a break or continue";
     }
 
-    Statement(Call* call){
+    Statement(Call *call) {
         data = "this was a call for a function";
     };
 };
@@ -771,14 +848,14 @@ public:
 
 class Statements : public Node {
 public:
-    Statements(Statement *st){};
+    Statements(Statement *st) {};
 
-    Statements(Statements *sts, Statement *st){};
+    Statements(Statements *sts, Statement *st) {};
 };
 
 class Funcs : public Node {
 public:
-    Funcs(){};
+    Funcs() {};
 };
 
 
@@ -786,14 +863,16 @@ class Program : public Node {
 public:
 
     Program() {
-        SymbolTable *global = new SymbolTable();
-        const vector<string> temp = {"string", "void"};
-        auto print = new Entry("print", temp, -420);
-        const vector<string> temp2 = {"int", "void"};//to do arg of byte also
-        auto printi = new Entry("printi", temp2, -420);
+        shared_ptr<SymbolTable> global = shared_ptr<SymbolTable>(new SymbolTable);
+        auto globalEnum = shared_ptr<EnumTable>(new EnumTable());
+        const vector<string> temp = {"STRING", "VOID"};
+        auto print = shared_ptr<Entry>(new Entry("print", temp, 0));
+        const vector<string> temp2 = {"INT", "VOID"};//to do arg of byte also
+        auto printi = shared_ptr<Entry>(new Entry("printi", temp2, 0));
         global->lines.emplace_back(print);
         global->lines.emplace_back(printi);
         tablesStack.emplace_back(global);
+        enumsStack.emplace_back(globalEnum);
         offsetsStack.emplace_back(0);
     }
 };
