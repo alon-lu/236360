@@ -49,7 +49,7 @@ continue                           yylval=new Node(yytext);   return CONTINUE;
 <STRINGS>([\x00-\x09\x0b-\x0c\x0e-\x21\x23-\x5b\x5d-\x7f]|((\\)(\\))|((\\)(\"))|((\\)(n))|((\\)(r)))*(\") {BEGIN(INITIAL);  yylval=new Node(yytext);  return STRING;}
 <STRINGS>([^(\")])*((\")?)            {output::errorLex(yylineno); exit(0);};
 {whitespace}				                  ;
-\/\/[^\r\n]*[\r|\n|\r\n]?             ;
+\/\/[^\r\n]*[\r|\n|\r\n|\n\r]?        ;
 .                                     {output::errorLex(yylineno); exit(0);};
 
 

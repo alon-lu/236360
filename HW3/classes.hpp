@@ -352,7 +352,19 @@ public:
 
     Exp(Call *call);
 
+    Exp(Exp *exp, string str) {//checking for if
+        if (exp->type != "BOOL") {
+            output::errorMismatch(yylineno);
+            exit(0);
+        }
+        value = exp->value;
+        type = exp->type;
+        boolVal = exp->boolVal;
+    }
+
+
 };
+
 
 class EnumType : public Node {
 public:
@@ -524,9 +536,9 @@ public:
 };
 
 static void enterArguments(Formals *fm) {
-    for (int i = 0; i < fm->formals.size(); i++) {
+    for (int i = fm->formals.size() - 1; i >= 0; i--) {
         auto temp = shared_ptr<Entry>(new Entry(fm->formals[i]->value, fm->formals[i]->type,
-                                                0 - i - 1));
+                                                0 - (fm->formals.size() - i)));
         tablesStack.back()->lines.push_back(temp);
     }
 }
@@ -628,18 +640,18 @@ public:
 
 //      EnumType ID SC
     Statement(EnumType *enumType, Node *id) {
-        bool flag = false;
+        bool enumID_Found = false;
         for (int i = enumsStack.size() - 1; i >= 0; i--) {
             for (int j = 0; j < enumsStack[i]->enumLines.size(); ++j) {
                 int len = enumsStack[i]->enumLines[j]->name.length();
-                if (id->value.compare(5, len - 5,
-                                      enumsStack[i]->enumLines[j]->name) == 0) {
-                    flag = true;
+                if (enumType->value.compare(5, len - 5,
+                                            enumsStack[i]->enumLines[j]->name) == 0) {
+                    enumID_Found = true;
                     break;
                 }
             }
         }
-        if (flag == false) {
+        if (enumID_Found == false) {
             output::errorUndefEnum(yylineno, enumType->value.substr(5,
                                                                     enumType->value.size() -
                                                                     5));
@@ -719,7 +731,7 @@ public:
                     }
                 }
             }
-            output::errorUndef(yylineno, exp->value);
+            output::errorUndefEnumValue(yylineno, id->value);
             exit(0);
         }
 
@@ -746,6 +758,10 @@ public:
                             data = exp->value;
                             return;
                         } else {
+                            if (tablesStack[i]->lines[j]->types[0].compare(0, 4, "enum") == 0) {
+                                output::errorUndefEnumValue(yylineno, id->value);
+                                exit(0);
+                            }
                             output::errorMismatch(yylineno);
                             exit(0);
                         }
@@ -785,7 +801,7 @@ public:
 
 //    RETURN Exp SC
     Statement(Exp *exp) {
-        if (exp->type=="VOID"){
+        if (exp->type == "VOID") {
             output::errorMismatch(yylineno);
             exit(0);
         }
@@ -817,8 +833,9 @@ public:
     Statement(Statements *sts) {
         data = "this was a block";
     }
+
     // handels if, if else, while
-    Statement(string str,Exp *exp) {
+    Statement(string str, Exp *exp) {
         if (exp->type != "BOOL") {
             output::errorMismatch(yylineno);
             exit(0);

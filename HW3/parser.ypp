@@ -8,7 +8,6 @@
 	int yyerror(const char * message);
 
 %}
-
 %nonassoc VOID;//
 %nonassoc INT;//
 %nonassoc BYTE;//
@@ -75,8 +74,8 @@ Statement : 		 LBRACE OS Statements CS RBRACE {$$= new Statement (dynamic_cast<S
 								 | Call SC {$$= new Statement (dynamic_cast<Call*> ($1));}//done
 								 | RETURN SC {$$= new Statement ("VOID");}//done
 								 | RETURN Exp SC {$$= new Statement (dynamic_cast<Exp*> ($2));}//done
-								 | IF LPAREN Exp RPAREN OS Statement {$$= new Statement ("if", dynamic_cast<Exp*> ($3)); closeScope();}  //done
-								 | IF LPAREN Exp RPAREN OS Statement ELSE {$$= new Statement ("if else", dynamic_cast<Exp*> ($3)); closeScope();} OS Statement CS   //done
+								 | IF LPAREN FRUIT RPAREN OS Statement {$$= new Statement ("if", dynamic_cast<Exp*> ($3)); closeScope();}  //done
+								 | IF LPAREN FRUIT RPAREN OS Statement ELSE {$$= new Statement ("if else", dynamic_cast<Exp*> ($3)); closeScope();} OS Statement CS   //done
 								 | WHILE LPAREN Exp RPAREN {$$= new Statement ("while", dynamic_cast<Exp*> ($3));inLoop();} OS Statement CS { outLoop();}//done
 								 | BREAK SC {$$= new Statement ($1);}//done
 								 | CONTINUE SC {$$= new Statement ($1);};//done
@@ -105,11 +104,14 @@ Exp :      	  	 LPAREN Exp RPAREN {$$= new Exp(dynamic_cast<Exp*> ($2));}//done
 							   | Exp MUL Exp {$$= new Exp(dynamic_cast<Exp*> ($1),$2,dynamic_cast<Exp*> ($3),"MUL");}//done
 							   | LPAREN Type RPAREN Exp {$$= new Exp(dynamic_cast<Type*> ($2),dynamic_cast<Exp*> ($4));};//done
 
+
+FRUIT:	Exp {$$= new Exp(dynamic_cast<Exp*>($1),"STRING");};
 OS:						 		{openScope();};
 CS:								{closeScope();};
 
 
 %%
+
 
 int main()
 {
