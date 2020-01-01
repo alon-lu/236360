@@ -1,0 +1,36 @@
+Running test for t10
+4c4
+< line 7: prototype mismatch, function test expects arguments (BYTE,BOOL)
+---
+> line 7: prototype mismatch, function test expects arguments (BOOL,BYTE)
+*** DONE ***
+
+Running test for t35
+12c12
+< myFun (enum myEnum2,enum myEnum)->VOID 0
+---
+> myFun (enum myEnum,enum myEnum2)->VOID 0
+*** DONE ***
+
+Running test for t37
+5c5
+< line 14: prototype mismatch, function myFun expects arguments (enum myEnum2,enum myEnum)
+---
+> line 14: prototype mismatch, function myFun expects arguments (enum myEnum,enum myEnum2)
+*** DONE ***
+
+Running test for t8
+23,24c23,24
+< testIn1 (BYTE,BOOL)->VOID 0
+< testIn2 (INT,BOOL)->VOID 0
+---
+> testIn1 (BOOL,BYTE)->VOID 0
+> testIn2 (BOOL,INT)->VOID 0
+*** DONE ***
+
+Running test for t9
+4c4
+< line 7: prototype mismatch, function test expects arguments (BYTE,BOOL)
+---
+> line 7: prototype mismatch, function test expects arguments (BOOL,BYTE)
+*** DONE ***

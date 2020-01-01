@@ -349,7 +349,7 @@ Call::Call(Node *ID) {
 bool FormalDecl::checkingTypes(string str) {
     for (int i = enumsStack.size() - 1; i >= 0; i--) {
         for (int j = 0; j < enumsStack[i]->enumLines.size(); ++j) {
-            int len = enumsStack[i]->enumLines[j]->name.length();
+            int len = str.length();
             if (str.compare(5, len - 5,
                             enumsStack[i]->enumLines[j]->name) == 0) {
                 return true;
@@ -432,7 +432,7 @@ Statement::Statement(EnumType *enumType, Node *id) {
     bool enumID_Found = false;
     for (int i = enumsStack.size() - 1; i >= 0; i--) {
         for (int j = 0; j < enumsStack[i]->enumLines.size(); ++j) {
-            int len = enumsStack[i]->enumLines[j]->name.length();
+            int len = enumType->value.length();
             if (enumType->value.compare(5, len - 5,
                                         enumsStack[i]->enumLines[j]->name) == 0) {
                 enumID_Found = true;
@@ -479,7 +479,7 @@ Statement::Statement(EnumType *enumType, Node *id, Exp *exp) {
     vector<string> enumVals;
     for (int i = enumsStack.size() - 1; i >= 0; i--) {
         for (int j = 0; j < enumsStack[i]->enumLines.size(); ++j) {
-            int len = enumsStack[i]->enumLines[j]->name.length();
+            int len = enumType->value.length();
             if (enumType->value.compare(5, len - 5,
                                         enumsStack[i]->enumLines[j]->name) ==
                 0) {
@@ -534,8 +534,8 @@ Statement::Statement(Node *id, Exp *exp) {
             if (tablesStack[i]->lines[j]->name == id->value) {
                 if (tablesStack[i]->lines[j]->types.size() ==
                     1) {//making sure this is not a function
-                    if (tablesStack[i]->lines[j]->types[0] ==
-                        exp->type) {//checking types
+                    if ((tablesStack[i]->lines[j]->types[0] == "INT" && exp->type== "BYTE") ||
+                    tablesStack[i]->lines[j]->types[0] == exp->type) {//checking types
                         data = exp->value;
                         return;
                     } else {
@@ -633,4 +633,5 @@ Program::Program() {
     enumsStack.emplace_back(globalEnum);
     offsetsStack.emplace_back(0);
 }
+
 
