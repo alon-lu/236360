@@ -108,9 +108,11 @@ bool identifierExists(string str) {
 
 
 void enterArguments(Formals *fm) {
-    for (int i = fm->formals.size() - 1; i >= 0; i--) {
-        auto temp = shared_ptr<Entry>(new Entry(fm->formals[i]->value, fm->formals[i]->type,
-                                                0 - (fm->formals.size() - i)));
+//    for (int i = fm->formals.size() - 1; i >= 0; i--) {
+//        auto temp = shared_ptr<Entry>(new Entry(fm->formals[i]->value, fm->formals[i]->type,
+//                                                0 - (fm->formals.size() - i)));
+    for (int i =0; i < fm->formals.size(); i++) {
+        auto temp = shared_ptr<Entry>(new Entry(fm->formals[i]->value, fm->formals[i]->type,-i-1));
         tablesStack.back()->lines.push_back(temp);
     }
 }

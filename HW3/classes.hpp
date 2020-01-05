@@ -140,15 +140,18 @@ public:
 
 class ExpList : public Node {
 public:
-    vector<Exp> expList;
+    vector<Exp> expList;///save in order in text(not derivation)
 
     ExpList(Exp *exp) {
-        expList.emplace_back(exp);
+//        expList.emplace_back(exp);
+expList.emplace(expList.begin(),exp);
     }
 
     ExpList(Exp *exp, ExpList *expList) {
         this->expList = vector<Exp>(expList->expList);
-        this->expList.emplace_back(exp);
+//        this->expList.emplace_back(exp);
+        this->expList.emplace(this->expList.begin(),exp);
+
     }
 };
 
@@ -202,16 +205,17 @@ public:
 
 class FormalsList : public Node {
 public:
-    vector<FormalDecl *> formals;
+    vector<FormalDecl *> formals;///save in order in text(not derivation)
 
     //The value of FormalsList is empty!!!
     FormalsList(FormalDecl *formal) {
-        formals.emplace_back(formal);
+        formals.insert(formals.begin(),formal);
+//        formals.emplace_back(formal);
     }
 
     FormalsList(FormalsList *flist, FormalDecl *formal) {
         formals = vector<FormalDecl *>(flist->formals);
-        formals.emplace_back(formal);
+        formals.insert(formals.begin(),formal);
     }
 };
 
