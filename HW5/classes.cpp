@@ -1,11 +1,13 @@
 //
 // Created by Liad on 18/12/2019.
-//
+//todo: 1)Numeric Slide for arithmetic exp's
 #include "classes.hpp"
 
 
 /// global variables and functions
 string currFucn;
+regPool pool;
+CodeBuffer& buffer = CodeBuffer::instance();
 vector<shared_ptr<SymbolTable>> tablesStack;
 vector<int> offsetsStack;
 vector<shared_ptr<EnumTable>> enumsStack;//will hold all the enums that were defined
@@ -179,18 +181,22 @@ Exp::Exp(Exp *left, Node *op, Exp *right, string str) {
         }
         if (str.compare("ADD") == 0 || str.compare("MUL") == 0) {
             this->type = "BYTE";
+            string isize="i8";
             if (left->type == "INT" || right->type == "INT") {
                 this->type = "INT";
+                isize="i32";
             }
-//                if (op->value.compare("+") == 0) {
-//                    value = to_string(ileft + iright);
-//                } else if (op->value.compare("-") == 0) {
-//                    value = to_string(ileft - iright);
-//                } else if (op->value.compare("*") == 0) {
-//                    value = to_string(ileft * iright);
-//                } else if (op->value.compare("/") == 0) {
-//                    value = to_string(ileft / iright);
-//                }
+            this->reg = pool.getReg();
+            if (op->value.compare("+") == 0) {
+                buffer.emit(this->reg + " = add " + isize + " " + left->reg + ", " + right->reg);
+                } else if (op->value.compare("-") == 0) {
+                buffer.emit(this->reg + " = sub " + isize + " " + left->reg + ", " + right->reg);
+                } else if (op->value.compare("*") == 0) {
+                buffer.emit(this->reg + " = mul " + isize + " " + left->reg + ", " + right->reg);
+                } else if (op->value.compare("/") == 0) {
+                string command = (isize == "i8"?"udiv ":"sdiv ");
+                buffer.emit(this->reg + " = " + command + isize + " " + left->reg + ", " + right->reg);
+                }
         }
     } else if ((left->type.compare("BOOL") == 0 &&
                 right->type.compare("BOOL") == 0)) {//both are bool
@@ -635,5 +641,3 @@ Program::Program() {
     enumsStack.emplace_back(globalEnum);
     offsetsStack.emplace_back(0);
 }
-
-

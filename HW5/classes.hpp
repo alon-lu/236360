@@ -7,6 +7,8 @@
 #include <vector>
 #include <stack>
 #include "hw3_output.hpp"
+#include "regPool.hpp"
+#include "bp.hpp"
 
 
 extern int yylineno;
@@ -108,6 +110,7 @@ class Exp : public Node {
 public:
     string type;
     bool boolVal;
+    string reg;
 
     // handles NUM,B,string,true,false
     Exp(Node *terminal, string str);
