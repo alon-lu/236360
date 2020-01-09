@@ -162,22 +162,40 @@ Exp::Exp(Exp *left, Node *op, Exp *right, string str) {
         (right->type.compare("BYTE") == 0 ||
          right->type.compare("INT") == 0)) {// both operands must be numbers
 
-//            int ileft = stoi(left->value), iright = stoi(right->value);
         if (str.compare("RELOPL") == 0 || str.compare("RELOPN") == 0) {
             this->type = "BOOL";
-//                if (op->value.compare("==") == 0) {
-//                    boolVal = (ileft == iright ? true : false);
-//                } else if (op->value.compare("!=") == 0) {
-//                    boolVal = (ileft != iright ? true : false);
-//                } else if (op->value.compare("<") == 0) {
-//                    boolVal = (ileft < iright ? true : false);
-//                } else if (op->value.compare(">") == 0) {
-//                    boolVal = (ileft > iright ? true : false);
-//                } else if (op->value.compare("<=") == 0) {
-//                    boolVal = (ileft <= iright ? true : false);
-//                } else if (op->value.compare(">=") == 0) {
-//                    boolVal = (ileft >= iright ? true : false);
-//                }
+            string isize="i8";
+            if (left->type == "INT" || right->type == "INT") {
+                isize="i32";
+            }
+            string relop;
+                if (op->value.compare("==") == 0) {
+                  relop= "eq";
+                } else if (op->value.compare("!=") == 0) {
+                  relop= "ne";
+                } else if (op->value.compare("<") == 0) {
+                  relop= "slt";
+                    if(isize == "i8"){
+                      relop= "ult";
+                    }
+                } else if (op->value.compare(">") == 0) {
+                  relop= "sgt";
+                    if(isize == "i8"){
+                      relop= "ugt";
+                    }
+                } else if (op->value.compare("<=") == 0) {
+                  relop= "sle";
+                    if(isize == "i8"){
+                      relop= "ule";
+                    }
+                } else if (op->value.compare(">=") == 0) {
+                  relop= "sge";
+                    if(isize == "i8"){
+                      relop= "uge";
+                    }
+                }
+                buffer.emit(this->reg + " = icmp " + relop +" "+ isize + " " + left->reg + ", " + right->reg);
+
         }
         if (str.compare("ADD") == 0 || str.compare("MUL") == 0) {
             this->type = "BYTE";
@@ -187,16 +205,23 @@ Exp::Exp(Exp *left, Node *op, Exp *right, string str) {
                 isize="i32";
             }
             this->reg = pool.getReg();
+            string op;
             if (op->value.compare("+") == 0) {
-                buffer.emit(this->reg + " = add " + isize + " " + left->reg + ", " + right->reg);
+                op = "add"
                 } else if (op->value.compare("-") == 0) {
-                buffer.emit(this->reg + " = sub " + isize + " " + left->reg + ", " + right->reg);
+                op = "sub";
                 } else if (op->value.compare("*") == 0) {
-                buffer.emit(this->reg + " = mul " + isize + " " + left->reg + ", " + right->reg);
-                } else if (op->value.compare("/") == 0) {
-                string command = (isize == "i8"?"udiv ":"sdiv ");
-                buffer.emit(this->reg + " = " + command + isize + " " + left->reg + ", " + right->reg);
-                }
+                  op = "mul";
+            } else if (op->value.compare("/") == 0) {
+                buffer.emit("%cond = icmp eq i32 %" + right->reg + ", 0");
+                buffer.emit("br i1 %cond, lablel %zeroflag, label %dodiv");
+                buffer.emit("zeroflag: ");//todo: jump to function
+                buffer.emit("dodiv:");
+                op = "sdiv";
+            }
+            buffer.emit(this->reg + " = "+ op + " " + isize + " " + left->reg + ", " + right->reg);
+
+
         }
     } else if ((left->type.compare("BOOL") == 0 &&
                 right->type.compare("BOOL") == 0)) {//both are bool
@@ -209,15 +234,17 @@ Exp::Exp(Exp *left, Node *op, Exp *right, string str) {
             bright = false;
 
         if (str.compare("AND") == 0 || str.compare("OR") == 0) {
+          string boolop;
             if (op->value.compare("AND") == 0) {
-                if (bleft && bright)
-                    value = "true";
-                else value = "false";
+              icmp left==0;
+              br longEval;
+              boolop = "and";
             } else if (op->value.compare("OR") == 0) {
-                if (bleft || bright)
-                    value = "true";
-                else value = "false";
+              boolop = "or";
             }
+
+            buffer.emit("longEval:");
+            buffer.emit(this->reg + " = "+ boolop + " " + "i1" + " " + left->reg + ", " + right->reg);
         } else {
             output::errorMismatch(yylineno);
             exit(0);
