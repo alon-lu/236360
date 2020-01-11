@@ -111,6 +111,9 @@ public:
     string type;
     bool boolVal;
     string reg;
+    vector <pair<int,BranchLabelIndex>> trueList;
+    vector <pair<int,BranchLabelIndex>> falseList;
+    std::string startLabel;
 
     // handles NUM,B,string,true,false
     Exp(Node *terminal, string str);

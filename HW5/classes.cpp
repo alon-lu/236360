@@ -7,7 +7,7 @@
 /// global variables and functions
 string currFucn;
 regPool pool;
-CodeBuffer& buffer = CodeBuffer::instance();
+CodeBuffer &buffer = CodeBuffer::instance();
 vector<shared_ptr<SymbolTable>> tablesStack;
 vector<int> offsetsStack;
 vector<shared_ptr<EnumTable>> enumsStack;//will hold all the enums that were defined
@@ -113,14 +113,15 @@ void enterArguments(Formals *fm) {
 //    for (int i = fm->formals.size() - 1; i >= 0; i--) {
 //        auto temp = shared_ptr<Entry>(new Entry(fm->formals[i]->value, fm->formals[i]->type,
 //                                                0 - (fm->formals.size() - i)));
-    for (int i =0; i < fm->formals.size(); i++) {
-        auto temp = shared_ptr<Entry>(new Entry(fm->formals[i]->value, fm->formals[i]->type,-i-1));
+    for (int i = 0; i < fm->formals.size(); i++) {
+        auto temp = shared_ptr<Entry>(new Entry(fm->formals[i]->value, fm->formals[i]->type, -i - 1));
         tablesStack.back()->lines.push_back(temp);
     }
 }
 ///EXP implamtation
 
 Exp::Exp(Node *terminal, string str) : Node(terminal->value) {
+    this->startLabel=buffer.genLabel();
     this->type = "";
     if (str.compare("num") == 0) {
         type = "INT";
@@ -146,16 +147,20 @@ Exp::Exp(Node *terminal, string str) : Node(terminal->value) {
 }
 
 Exp::Exp(Node *Not, Exp *exp) {
+    this->startLabel=buffer.genLabel();
     this->type = "";
     if (exp->type != "BOOL") {
         output::errorMismatch(yylineno);
         exit(0);
     }
     this->type = "BOOL";
-    boolVal = !boolVal;
+    this->falseList=exp->trueList;
+    this->trueList=exp->falseList;
 }
 
+
 Exp::Exp(Exp *left, Node *op, Exp *right, string str) {
+    this->startLabel=buffer.genLabel();
     this->type = "";
     if ((left->type.compare("BYTE") == 0 ||
          left->type.compare("INT") == 0) &&
@@ -164,87 +169,84 @@ Exp::Exp(Exp *left, Node *op, Exp *right, string str) {
 
         if (str.compare("RELOPL") == 0 || str.compare("RELOPN") == 0) {
             this->type = "BOOL";
-            string isize="i8";
+            string isize = "i8";
             if (left->type == "INT" || right->type == "INT") {
-                isize="i32";
+                isize = "i32";
             }
             string relop;
-                if (op->value.compare("==") == 0) {
-                  relop= "eq";
-                } else if (op->value.compare("!=") == 0) {
-                  relop= "ne";
-                } else if (op->value.compare("<") == 0) {
-                  relop= "slt";
-                    if(isize == "i8"){
-                      relop= "ult";
-                    }
-                } else if (op->value.compare(">") == 0) {
-                  relop= "sgt";
-                    if(isize == "i8"){
-                      relop= "ugt";
-                    }
-                } else if (op->value.compare("<=") == 0) {
-                  relop= "sle";
-                    if(isize == "i8"){
-                      relop= "ule";
-                    }
-                } else if (op->value.compare(">=") == 0) {
-                  relop= "sge";
-                    if(isize == "i8"){
-                      relop= "uge";
-                    }
+            if (op->value.compare("==") == 0) {
+                relop = "eq";
+            } else if (op->value.compare("!=") == 0) {
+                relop = "ne";
+            } else if (op->value.compare("<") == 0) {
+                relop = "slt";
+                if (isize == "i8") {
+                    relop = "ult";
                 }
-                buffer.emit(this->reg + " = icmp " + relop +" "+ isize + " " + left->reg + ", " + right->reg);
-
+            } else if (op->value.compare(">") == 0) {
+                relop = "sgt";
+                if (isize == "i8") {
+                    relop = "ugt";
+                }
+            } else if (op->value.compare("<=") == 0) {
+                relop = "sle";
+                if (isize == "i8") {
+                    relop = "ule";
+                }
+            } else if (op->value.compare(">=") == 0) {
+                relop = "sge";
+                if (isize == "i8") {
+                    relop = "uge";
+                }
+            }
+            buffer.emit(this->reg + " = icmp " + relop + " " + isize + " " + left->reg + ", " + right->reg);
+            int loc =buffer.emit("br i1 " + this->reg + ", label @, label @");
+            trueList= buffer.makelist(pair<int,BranchLabelIndex> (loc,FIRST));
+            falseList= buffer.makelist(pair<int,BranchLabelIndex> (loc,SECOND));
         }
         if (str.compare("ADD") == 0 || str.compare("MUL") == 0) {
             this->type = "BYTE";
-            string isize="i8";
+            string isize = "i8";
             if (left->type == "INT" || right->type == "INT") {
                 this->type = "INT";
-                isize="i32";
+                isize = "i32";
             }
             this->reg = pool.getReg();
-            string op;
+            string operation;
             if (op->value.compare("+") == 0) {
-                op = "add"
-                } else if (op->value.compare("-") == 0) {
-                op = "sub";
-                } else if (op->value.compare("*") == 0) {
-                  op = "mul";
+                operation = "add";
+            } else if (op->value.compare("-") == 0) {
+                operation = "sub";
+            } else if (op->value.compare("*") == 0) {
+                operation = "mul";
             } else if (op->value.compare("/") == 0) {
                 buffer.emit("%cond = icmp eq i32 %" + right->reg + ", 0");
                 buffer.emit("br i1 %cond, lablel %zeroflag, label %dodiv");
                 buffer.emit("zeroflag: ");//todo: jump to function
                 buffer.emit("dodiv:");
-                op = "sdiv";
+                operation = "sdiv";
             }
-            buffer.emit(this->reg + " = "+ op + " " + isize + " " + left->reg + ", " + right->reg);
+            buffer.emit(this->reg + " = " + operation + " " + isize + " " + left->reg + ", " + right->reg);
 
 
         }
     } else if ((left->type.compare("BOOL") == 0 &&
                 right->type.compare("BOOL") == 0)) {//both are bool
         //handiling AND OR
-        bool bleft = true, bright = true;
         this->type = "BOOL";
-        if (left->value.compare("false") == 0)
-            bleft = false;
-        if (right->value.compare("false") == 0)
-            bright = false;
 
         if (str.compare("AND") == 0 || str.compare("OR") == 0) {
-          string boolop;
+            string boolop;
             if (op->value.compare("AND") == 0) {
-              icmp left==0;
-              br longEval;
-              boolop = "and";
+                buffer.bpatch(left->trueList,right->startLabel);
+                this->falseList = buffer.merge(right->falseList, left->falseList);
+                this->trueList = right->trueList;
             } else if (op->value.compare("OR") == 0) {
-              boolop = "or";
+                buffer.bpatch(left->falseList,right->startLabel);
+                this->trueList = buffer.merge(right->trueList, left->trueList);
+                this->falseList = right->falseList;
             }
 
-            buffer.emit("longEval:");
-            buffer.emit(this->reg + " = "+ boolop + " " + "i1" + " " + left->reg + ", " + right->reg);
         } else {
             output::errorMismatch(yylineno);
             exit(0);
@@ -256,12 +258,14 @@ Exp::Exp(Exp *left, Node *op, Exp *right, string str) {
 }
 
 Exp::Exp(Exp *exp) {
+    this->startLabel=buffer.genLabel();
     value = exp->value;
     type = exp->type;
     boolVal = exp->boolVal;
 }
 
 Exp::Exp(Type *type, Exp *exp) {//cant see type because it is announced later
+    this->startLabel=buffer.genLabel();
     this->type = "";
     if (exp->type.compare(0, 5, "enum ") == 0) {//exp type is enum
         if (type->value == "INT") {//casting into int
@@ -272,6 +276,7 @@ Exp::Exp(Type *type, Exp *exp) {//cant see type because it is announced later
 }
 
 Exp::Exp(Node *ID) {
+    this->startLabel=buffer.genLabel();
     this->type = "";
     for (int i = tablesStack.size() - 1; i >= 0; i--) {
         for (int j = 0; j < tablesStack[i]->lines.size(); ++j) {
@@ -299,10 +304,12 @@ Exp::Exp(Node *ID) {
 }
 
 Exp::Exp(Call *call) {
+    this->startLabel=buffer.genLabel();
     this->type = call->value;
 }
 
 Exp::Exp(Exp *exp, string str) {//checking for if
+    this->startLabel=buffer.genLabel();
     if (exp->type != "BOOL") {
         output::errorMismatch(yylineno);
         exit(0);
@@ -569,8 +576,8 @@ Statement::Statement(Node *id, Exp *exp) {
             if (tablesStack[i]->lines[j]->name == id->value) {
                 if (tablesStack[i]->lines[j]->types.size() ==
                     1) {//making sure this is not a function
-                    if ((tablesStack[i]->lines[j]->types[0] == "INT" && exp->type== "BYTE") ||
-                    tablesStack[i]->lines[j]->types[0] == exp->type) {//checking types
+                    if ((tablesStack[i]->lines[j]->types[0] == "INT" && exp->type == "BYTE") ||
+                        tablesStack[i]->lines[j]->types[0] == exp->type) {//checking types
                         data = exp->value;
                         return;
                     } else {
