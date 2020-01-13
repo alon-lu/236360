@@ -1,6 +1,6 @@
 //
 // Created by Liad on 18/12/2019.
-//todo: 1)Numeric Slide for arithmetic exp's
+//todo: 1)Tests for Numeric Slide of arithmetic exp's
 #include "classes.hpp"
 
 
@@ -125,6 +125,8 @@ Exp::Exp(Node *terminal, string str) : Node(terminal->value) {
     this->type = "";
     if (str.compare("num") == 0) {
         type = "INT";
+        this->reg = pool.getReg();
+        buffer.emit(this->reg + " = " + terminal->value);
     }
     if (str.compare("STRING") == 0) {
         type = "STRING";
@@ -333,6 +335,7 @@ EnumType::EnumType(Node *Enum, Node *id) {
     exit(0);
 }
 
+
 Call::Call(Node *ID, ExpList *list) {
     auto global = tablesStack.front()->lines;
     for (auto i:global) {
@@ -353,6 +356,15 @@ Call::Call(Node *ID, ExpList *list) {
                     }
                 }
                 this->value = i->types.back();
+                string type = "[" + to_string(list->expList.size()) + " x i32]";
+                buffer.emit("%stack = alloca [51 x i32]");
+                buffer.emit("%offset = getelementptr [51 x i32], [51 x i32]* %stack, i32 0, i32 50");
+                buffer.emit("store i32 0, i32* %offset");
+                buffer.emit("%args = alloca " + type);
+                for(int i = 0 ; i< list->expList.size() ; i++){
+                    buffer.emit("%ptr = getelementptr " + type + ", " + type + "* %stack, i32 0, i32 " + to_string(i));
+                    buffer.emit("store i32 " + list->expList[i].reg + ", i32* %ptr");
+                }
                 return;//if we got here without errors, we found our function
             } else {
                 i->types.pop_back();
@@ -375,6 +387,8 @@ Call::Call(Node *ID) {
             }
             if (i->types.size() == 2) {
                 this->value = i->types.back();
+                buffer.emit("%stack = alloca [50 x i32]");
+                buffer.emit("%args = add i32 0,-1");
                 return;//if we got here without errors, we found our function
             } else {
                 vector<string> temp = {""};
@@ -456,6 +470,10 @@ FuncDecl::FuncDecl(RetType *retType, Node *ID, Formals *args) {
     currFucn = ID->value;
 }
 
+//void pushStack(string reg){
+//    buffer.emit("")
+//}
+
 ///Statemant implamtation
 
 Statement::Statement(Type *type, Node *id) {
@@ -468,6 +486,7 @@ Statement::Statement(Type *type, Node *id) {
     auto temp = shared_ptr<Entry>(new Entry(id->value, type->value, offset));
     tablesStack.back()->lines.emplace_back(temp);
     data = "type id";
+    buffer.emit(this->reg + " = add i32 0,0");
 }
 
 Statement::Statement(EnumType *enumType, Node *id) {
@@ -500,6 +519,7 @@ Statement::Statement(EnumType *enumType, Node *id) {
 
 Statement::Statement(Type *type, Node *id, Exp *exp) {
     //checking if the id already defined
+
     if (exp->type != type->value) {
         if (type->value != "INT" || exp->type != "BYTE") {
             output::errorMismatch(yylineno);
@@ -510,6 +530,7 @@ Statement::Statement(Type *type, Node *id, Exp *exp) {
         output::errorDef(yylineno, id->value);
         exit(0);
     }
+
     data = exp->value;
     int offset = offsetsStack.back()++;
     auto temp = shared_ptr<Entry>(new Entry(id->value, type->value, offset));

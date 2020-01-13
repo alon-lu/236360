@@ -150,7 +150,7 @@ public:
 
     ExpList(Exp *exp) {
 //        expList.emplace_back(exp);
-expList.emplace(expList.begin(),exp);
+        expList.emplace(expList.begin(),exp);
     }
 
     ExpList(Exp *exp, ExpList *expList) {
@@ -269,6 +269,7 @@ class Statements;
 class Statement : public Node {
 public:
     string data;
+    string reg;
 
 //      Type ID SC
     Statement(Type *type, Node *id);
