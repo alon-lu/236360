@@ -1,6 +1,9 @@
 //
 // Created by Liad on 18/12/2019.
 //todo: 1)Tests for Numeric Slide of arithmetic exp's
+//      2)where to declere the print functions(that are present in the symbol table from the start)
+//      
+
 #include "classes.hpp"
 
 
@@ -108,6 +111,15 @@ bool identifierExists(string str) {
     return false;
 }
 
+/// gets a type(BOOL,BYTE,ENUM,INT) and returns the matching llvm type
+string get_LLVM_Type(string type) {
+    //the only avialble types are BOOL,BYTE,INT,ENUM
+    if (type == "BOOL") {
+        return "i2";
+    } else if (type == "BYTE") {
+        return "i8";
+    } else return "i32"; //INT and ENUM fall here
+}
 
 void enterArguments(Formals *fm) {
 //    for (int i = fm->formals.size() - 1; i >= 0; i--) {
@@ -121,7 +133,7 @@ void enterArguments(Formals *fm) {
 ///EXP implamtation
 
 Exp::Exp(Node *terminal, string str) : Node(terminal->value) {
-    this->startLabel=buffer.genLabel();
+    this->startLabel = buffer.genLabel();
     this->type = "";
     if (str.compare("num") == 0) {
         type = "INT";
@@ -149,20 +161,20 @@ Exp::Exp(Node *terminal, string str) : Node(terminal->value) {
 }
 
 Exp::Exp(Node *Not, Exp *exp) {
-    this->startLabel=buffer.genLabel();
+    this->startLabel = buffer.genLabel();
     this->type = "";
     if (exp->type != "BOOL") {
         output::errorMismatch(yylineno);
         exit(0);
     }
     this->type = "BOOL";
-    this->falseList=exp->trueList;
-    this->trueList=exp->falseList;
+    this->falseList = exp->trueList;
+    this->trueList = exp->falseList;
 }
 
 
 Exp::Exp(Exp *left, Node *op, Exp *right, string str) {
-    this->startLabel=buffer.genLabel();
+    this->startLabel = buffer.genLabel();
     this->type = "";
     if ((left->type.compare("BYTE") == 0 ||
          left->type.compare("INT") == 0) &&
@@ -202,9 +214,9 @@ Exp::Exp(Exp *left, Node *op, Exp *right, string str) {
                 }
             }
             buffer.emit(this->reg + " = icmp " + relop + " " + isize + " " + left->reg + ", " + right->reg);
-            int loc =buffer.emit("br i1 " + this->reg + ", label @, label @");
-            trueList= buffer.makelist(pair<int,BranchLabelIndex> (loc,FIRST));
-            falseList= buffer.makelist(pair<int,BranchLabelIndex> (loc,SECOND));
+            int loc = buffer.emit("br i1 " + this->reg + ", label @, label @");
+            trueList = buffer.makelist(pair<int, BranchLabelIndex>(loc, FIRST));
+            falseList = buffer.makelist(pair<int, BranchLabelIndex>(loc, SECOND));
         }
         if (str.compare("ADD") == 0 || str.compare("MUL") == 0) {
             this->type = "BYTE";
@@ -240,11 +252,11 @@ Exp::Exp(Exp *left, Node *op, Exp *right, string str) {
         if (str.compare("AND") == 0 || str.compare("OR") == 0) {
             string boolop;
             if (op->value.compare("AND") == 0) {
-                buffer.bpatch(left->trueList,right->startLabel);
+                buffer.bpatch(left->trueList, right->startLabel);
                 this->falseList = buffer.merge(right->falseList, left->falseList);
                 this->trueList = right->trueList;
             } else if (op->value.compare("OR") == 0) {
-                buffer.bpatch(left->falseList,right->startLabel);
+                buffer.bpatch(left->falseList, right->startLabel);
                 this->trueList = buffer.merge(right->trueList, left->trueList);
                 this->falseList = right->falseList;
             }
@@ -260,14 +272,14 @@ Exp::Exp(Exp *left, Node *op, Exp *right, string str) {
 }
 
 Exp::Exp(Exp *exp) {
-    this->startLabel=buffer.genLabel();
+    this->startLabel = buffer.genLabel();
     value = exp->value;
     type = exp->type;
     boolVal = exp->boolVal;
 }
 
 Exp::Exp(Type *type, Exp *exp) {//cant see type because it is announced later
-    this->startLabel=buffer.genLabel();
+    this->startLabel = buffer.genLabel();
     this->type = "";
     if (exp->type.compare(0, 5, "enum ") == 0) {//exp type is enum
         if (type->value == "INT") {//casting into int
@@ -278,7 +290,7 @@ Exp::Exp(Type *type, Exp *exp) {//cant see type because it is announced later
 }
 
 Exp::Exp(Node *ID) {
-    this->startLabel=buffer.genLabel();
+    this->startLabel = buffer.genLabel();
     this->type = "";
     for (int i = tablesStack.size() - 1; i >= 0; i--) {
         for (int j = 0; j < tablesStack[i]->lines.size(); ++j) {
@@ -306,12 +318,12 @@ Exp::Exp(Node *ID) {
 }
 
 Exp::Exp(Call *call) {
-    this->startLabel=buffer.genLabel();
+    this->startLabel = buffer.genLabel();
     this->type = call->value;
 }
 
 Exp::Exp(Exp *exp, string str) {//checking for if
-    this->startLabel=buffer.genLabel();
+    this->startLabel = buffer.genLabel();
     if (exp->type != "BOOL") {
         output::errorMismatch(yylineno);
         exit(0);
@@ -320,7 +332,6 @@ Exp::Exp(Exp *exp, string str) {//checking for if
     type = exp->type;
     boolVal = exp->boolVal;
 }
-
 
 EnumType::EnumType(Node *Enum, Node *id) {
     for (int i = enumsStack.size() - 1; i >= 0; i--) {
@@ -335,7 +346,6 @@ EnumType::EnumType(Node *Enum, Node *id) {
     exit(0);
 }
 
-
 Call::Call(Node *ID, ExpList *list) {
     auto global = tablesStack.front()->lines;
     for (auto i:global) {
@@ -344,8 +354,12 @@ Call::Call(Node *ID, ExpList *list) {
                 output::errorUndefFunc(yylineno, ID->value);
                 exit(0);
             }
+            string argsDecl = "(";// will hold the arg decel string structured as such (i32,i32)
+            string args = "(";//will hold the passed args themselves (i32 %x,i32 %y)
             if (i->types.size() == 1 + list->expList.size()) {//checking the number of arguments
                 for (int j = 0; j < list->expList.size(); j++) {
+                    args += get_LLVM_Type(i->types[j]) + "%" + list->expList[j].value + ",";
+                    argsDecl += get_LLVM_Type(i->types[j]) + ",";
                     if (list->expList[j].type == "BYTE" && i->types[j] == "INT") {
                         continue;
                     }
@@ -355,16 +369,15 @@ Call::Call(Node *ID, ExpList *list) {
                         exit(0);
                     }
                 }
-                this->value = i->types.back();
-                string type = "[" + to_string(list->expList.size()) + " x i32]";
-                buffer.emit("%stack = alloca [51 x i32]");
-                buffer.emit("%offset = getelementptr [51 x i32], [51 x i32]* %stack, i32 0, i32 50");
-                buffer.emit("store i32 0, i32* %offset");
-                buffer.emit("%args = alloca " + type);
-                for(int i = 0 ; i< list->expList.size() ; i++){
-                    buffer.emit("%ptr = getelementptr " + type + ", " + type + "* %stack, i32 0, i32 " + to_string(i));
-                    buffer.emit("store i32 " + list->expList[i].reg + ", i32* %ptr");
-                }
+                args.back() = ')';
+                argsDecl.back() = ')';
+                this->value = i->types.back();//TODO handle strings
+                string funcName = ID->value;
+                string retType = get_LLVM_Type(this->value);
+                buffer.emit("%call = call " + retType + " " + argsDecl + "* @" + funcName + args);
+                /// this is a call with no parameters
+                ///     %call = call i32 (i32,i32)* @foo(i32 %whhh,i32 %whhh)
+
                 return;//if we got here without errors, we found our function
             } else {
                 i->types.pop_back();
@@ -387,8 +400,12 @@ Call::Call(Node *ID) {
             }
             if (i->types.size() == 2) {
                 this->value = i->types.back();
-                buffer.emit("%stack = alloca [50 x i32]");
-                buffer.emit("%args = add i32 0,-1");
+                string funcName = ID->value;
+                string retType = get_LLVM_Type(this->value);
+                buffer.emit("%call = call " + retType + " ()* @" + funcName + "()");
+                /// this is a call with no parameters
+                ///            %call = call i32 ()* @foo()
+
                 return;//if we got here without errors, we found our function
             } else {
                 vector<string> temp = {""};
@@ -400,7 +417,6 @@ Call::Call(Node *ID) {
     output::errorUndefFunc(yylineno, ID->value);//if we found our function we're not supposed to get here
     exit(0);
 }
-
 
 bool FormalDecl::checkingTypes(string str) {
     for (int i = enumsStack.size() - 1; i >= 0; i--) {
@@ -438,6 +454,7 @@ EnumDecl::EnumDecl(Node *id, EnumeratorList *lst) {
     enumsStack.back()->enumLines.emplace_back(enumline);
 }
 
+
 FuncDecl::FuncDecl(RetType *retType, Node *ID, Formals *args) {
     if (identifierExists(ID->value)) {
         output::errorDef(yylineno, ID->value);
@@ -456,18 +473,51 @@ FuncDecl::FuncDecl(RetType *retType, Node *ID, Formals *args) {
         }
     }
     value = ID->value;
-    if (args->formals.size() != 0) {
+    if (args->formals.size() != 0) {// this will be used for the symbol table
         for (int i = 0; i < args->formals.size(); i++) {
             types.push_back(args->formals[i]->type);
         }
     } else {
         types.emplace_back("VOID");
     }
-    types.emplace_back(retType->value);
-
+    types.emplace_back(retType->value);//emplacing the return type
     auto temp = shared_ptr<Entry>(new Entry(this->value, this->types, 0));
     tablesStack.back()->lines.push_back(temp);
     currFucn = ID->value;
+    string argString = ("(");//will be printed in the llvm command
+///symbol table finished, starting to emit the LLVM
+    if (args->formals.size() != 0) {//this is for the LLVM command
+        for (int i = 0; i < args->formals.size(); i++) {//the only avialble types are BOOL,BYTE,INT,ENUM
+            argString += get_LLVM_Type(args->formals[i]->type) + ",";  //using this for to make the argString
+        }
+        argString.back() = ')'; // args is "(type name,type name)"
+    } else {//no args
+        argString.append(")");// args is "()"
+    }
+    string retTypeString = get_LLVM_Type(retType->value);
+    buffer.emit("define " + retTypeString + " @" + this->value + argString);  //  define i32 @foo(i32,i32)
+
+    ///initializing args and stack
+
+    buffer.emit("%stack = alloca [50 x i32]");
+    buffer.emit("%args = alloca [" + to_string(args->formals.size()) + " x i32");//%args= alloca [10 x i32]
+    for (int i = 0, size = args->formals.size(); i < size; i++) {
+        string ptrReg = pool.getReg();//gets a new register to hold the ptr
+        //%ptr = getelementptr inbounds[10 x i32]* %args, i32 0, i32 0
+        buffer.emit(
+                "%" + ptrReg + " = getelementptr inbounds [" + to_string(size) + " x i32]* %args, i32 0, i32 " +
+                to_string(i));
+        string dataReg = to_string(i);
+        string argtype = get_LLVM_Type(args->formals[i]->type);
+        if (argtype != "i32") {
+            //%X = zext i8 %t3 to i32
+            dataReg = pool.getReg();
+            buffer.emit("%" + dataReg + "=zext " + argtype + " %" + to_string(i) + " to i32");
+        }
+        //store i32 %t3, i32* %ptr
+        buffer.emit("store i32 %" + dataReg + ", i32* %" + ptrReg);
+    }
+
 }
 
 //void pushStack(string reg){

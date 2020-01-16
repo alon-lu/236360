@@ -71,6 +71,8 @@ void endProgram();
 
 bool identifierExists(string str);
 
+string get_LLVM_Type(string type);
+
 
 class Node {
 public:
