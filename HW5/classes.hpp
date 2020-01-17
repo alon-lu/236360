@@ -76,6 +76,7 @@ string get_LLVM_Type(string type);
 
 class Node {
 public:
+    string reg;
     string value;
 
     Node(string str) {
@@ -112,7 +113,6 @@ class Exp : public Node {
 public:
     string type;
     bool boolVal;
-    string reg;
     vector <pair<int,BranchLabelIndex>> trueList;
     vector <pair<int,BranchLabelIndex>> falseList;
     std::string startLabel;
