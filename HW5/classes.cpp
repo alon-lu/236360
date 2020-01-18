@@ -17,9 +17,13 @@ vector<int> offsetsStack;
 vector<shared_ptr<EnumTable>> enumsStack;//will hold all the enums that were defined
 vector<string> TYPES = {"VOID", "INT", "BYTE", "BOOL", "STRING"};
 
-void endFunc() {
+void endFunc(RetType *retType) {
+    if (retType->value == "VOID") {
+        buffer.emit("ret void");
+    }
+    buffer.emit("}");
     currFucn = "";
-    currFuncArgs=0;
+    currFuncArgs = 0;
 }
 
 int loopCount = 0;
@@ -41,11 +45,11 @@ void openScope() {
 }
 
 void closeScope() {
-    output::endScope();
+//    output::endScope();
     auto scope = tablesStack.back();
     for (auto i:scope->lines) {//printing all the variables(not enumDef) and functions
         if (i->types.size() == 1) {
-            output::printID(i->name, i->offset, i->types[0]);//variables
+//            output::printID(i->name, i->offset, i->types[0]);//variables
         } else {
             auto retVal = i->types.back();
             i->types.pop_back();
@@ -53,13 +57,13 @@ void closeScope() {
                 i->types.pop_back();
             }
 
-            output::printID(i->name, i->offset, output::makeFunctionType(retVal,
-                                                                         i->types));//functions
+//            output::printID(i->name, i->offset, output::makeFunctionType(retVal,
+//                                                                         i->types));//functions
         }
     }
     auto enumScope = enumsStack.back();
     for (int j = 0; j < enumScope->enumLines.size(); ++j) {
-        output::printEnumType(enumScope->enumLines[j]->name, enumScope->enumLines[j]->values);
+//        output::printEnumType(enumScope->enumLines[j]->name, enumScope->enumLines[j]->values);
     }
     while (scope->lines.size() != 0) {
         scope->lines.pop_back();
@@ -89,6 +93,8 @@ void endProgram() {
         exit(0);
     }
     closeScope();
+    buffer.printGlobalBuffer();
+    buffer.printCodeBuffer();
 }
 
 bool identifierExists(string str) {
@@ -116,10 +122,14 @@ bool identifierExists(string str) {
 /// gets a type(BOOL,BYTE,ENUM,INT) and returns the matching llvm type
 string get_LLVM_Type(string type) {
     //the only avialble types are BOOL,BYTE,INT,ENUM
-    if (type == "BOOL") {
-        return "i2";
+    if (type == "VOID") {
+        return "void";
+    } else if (type == "BOOL") {
+        return "i1";
     } else if (type == "BYTE") {
         return "i8";
+    } else if (type == "STRING") {
+        return "i8*";
     } else return "i32"; //INT and ENUM fall here
 }
 
@@ -134,23 +144,36 @@ void enterArguments(Formals *fm) {
 }
 ///EXP implamtation
 
-Exp::Exp(Node *terminal, string str) : Node(terminal->value) {
-    this->startLabel = buffer.genLabel();
+Exp::Exp(Node *terminal, string
+str) : Node(terminal->value) {
+//    this->startLabel = buffer.genLabel();
     this->type = "";
     if (str.compare("num") == 0) {
         type = "INT";
         this->reg = pool.getReg();
-        buffer.emit(this->reg + " = " + terminal->value);
+        buffer.emit("%" + this->reg + " = add i32 0," + terminal->value);
     }
     if (str.compare("STRING") == 0) {
         type = "STRING";
+        this->reg = pool.getReg();
+        terminal->value[terminal->value.size()-1] = '\00';
+        int size = terminal->value.size();
+        buffer.emitGlobal("@" + reg + "= constant [" + to_string(size) + " x i8] c\"" + terminal->value+"\"");
+        buffer.emit(
+                "%" + reg + "= getelementptr [" + to_string(size) + " x i8], [" + to_string(size) + " x i8]* @" + reg +
+                ", i8 0, i8 0");
+        //%t3 = getelementptr [10 x i8], [10 x i8]* @t3, i8 0, i8 0
+        //@name = constant [4 x i8] c"blabal"
     }
     if (str.compare("BOOL") == 0) {
         type = "BOOL";
+        this->reg = pool.getReg();
         if (value.compare("true") == 0) {
             boolVal = true;
+            buffer.emit("%" + this->reg + " = add i1 0,1");
         } else {
             boolVal = false;
+            buffer.emit("%" + this->reg + " = add i1 0,0");
         }
     }
     if (str.compare("B") == 0) {
@@ -159,11 +182,13 @@ Exp::Exp(Node *terminal, string str) : Node(terminal->value) {
             exit(0);
         }
         type = "BYTE";
+        this->reg = pool.getReg();
+        buffer.emit("%" + this->reg + " = add i8 0," + terminal->value);
     }
 }
 
 Exp::Exp(Node *Not, Exp *exp) {
-    this->startLabel = buffer.genLabel();
+//    this->startLabel = buffer.genLabel();
     this->type = "";
     if (exp->type != "BOOL") {
         output::errorMismatch(yylineno);
@@ -174,9 +199,9 @@ Exp::Exp(Node *Not, Exp *exp) {
     this->trueList = exp->falseList;
 }
 
-
-Exp::Exp(Exp *left, Node *op, Exp *right, string str) {
-    this->startLabel = buffer.genLabel();
+Exp::Exp(Exp *left, Node *op, Exp *right, string
+str) {
+//    this->startLabel = buffer.genLabel();
     this->type = "";
     if ((left->type.compare("BYTE") == 0 ||
          left->type.compare("INT") == 0) &&
@@ -215,7 +240,21 @@ Exp::Exp(Exp *left, Node *op, Exp *right, string str) {
                     relop = "uge";
                 }
             }
-            buffer.emit(this->reg + " = icmp " + relop + " " + isize + " " + left->reg + ", " + right->reg);
+            string dataRegL=left->reg;
+            string dataRegR=right->reg;
+            if(isize=="i32"){
+                if (left->type == "BYTE") {
+                    //%X = zext i8 %t3 to i32
+                    dataRegL = pool.getReg();
+                    buffer.emit("%" + dataRegL + " = zext i8 %" + left->reg + " to i32");
+                }
+                if (right->type == "BYTE") {
+                    //%X = zext i8 %t3 to i32
+                    dataRegR = pool.getReg();
+                    buffer.emit("%" + dataRegR + " = zext i8 %" + right->reg + " to i32");
+                }
+            }
+            buffer.emit("%"+this->reg + " = icmp " + relop + " " + isize + " %" + dataRegL + ", %" + dataRegR);
             int loc = buffer.emit("br i1 " + this->reg + ", label @, label @");
             trueList = buffer.makelist(pair<int, BranchLabelIndex>(loc, FIRST));
             falseList = buffer.makelist(pair<int, BranchLabelIndex>(loc, SECOND));
@@ -237,12 +276,30 @@ Exp::Exp(Exp *left, Node *op, Exp *right, string str) {
                 operation = "mul";
             } else if (op->value.compare("/") == 0) {
                 buffer.emit("%cond = icmp eq i32 %" + right->reg + ", 0");
-                buffer.emit("br i1 %cond, lablel %zeroflag, label %dodiv");
-                buffer.emit("zeroflag: ");//todo: jump to function
+                buffer.emit("br i1 %cond, label %zeroflag, label %dodiv");
+                buffer.emit("zeroflag: ");//
+                buffer.emit("%zero = getelementptr [22 x i8], [22 x i8]* @zero, i32 0, i32 0");
+                buffer.emit("call void @print(i8* %zero)");//  call void (i8*)* @print(i8* %str)
+                buffer.emit("call void @exit(i32 0)");
+                buffer.emit("br label %dodiv");
                 buffer.emit("dodiv:");
                 operation = "sdiv";
             }
-            buffer.emit(this->reg + " = " + operation + " " + isize + " " + left->reg + ", " + right->reg);
+            string dataRegL=left->reg;
+            string dataRegR=right->reg;
+            if(isize=="i32"){
+                if (left->type == "BYTE") {
+                    //%X = zext i8 %t3 to i32
+                    dataRegL = pool.getReg();
+                    buffer.emit("%" + dataRegL + " = zext i8 %" + left->reg + " to i32");
+                }
+                if (right->type == "BYTE") {
+                    //%X = zext i8 %t3 to i32
+                    dataRegR = pool.getReg();
+                    buffer.emit("%" + dataRegR + " = zext i8 %" + right->reg + " to i32");
+                }
+            }
+            buffer.emit("%"+ this->reg + " = " + operation + " " + isize + " %" + dataRegL + ", %" + dataRegR);
 
 
         }
@@ -274,19 +331,21 @@ Exp::Exp(Exp *left, Node *op, Exp *right, string str) {
 }
 
 Exp::Exp(Exp *exp) {
-    this->startLabel = buffer.genLabel();
-    value = exp->value;
-    type = exp->type;
-    boolVal = exp->boolVal;
+//    this->startLabel = buffer.genLabel();
+    this->value = exp->value;
+    this->type = exp->type;
+    this->boolVal = exp->boolVal;
+    this->reg = exp->reg;
 }
 
 Exp::Exp(Type *type, Exp *exp) {//cant see type because it is announced later
-    this->startLabel = buffer.genLabel();
+//    this->startLabel = buffer.genLabel();
     this->type = "";
     if (exp->type.compare(0, 5, "enum ") == 0) {//exp type is enum
         if (type->value == "INT") {//casting into int
             value = exp->value;
             this->type = "INT";
+            this->reg = exp->reg;
         }
     }
 }
@@ -295,17 +354,21 @@ string loadVariable(int offset, string type) {
     //%val = load i32* %ptr
     string reg = pool.getReg();
     string ptrReg = pool.getReg();
-    if (offset >= 0) {
+    if (offset >= 0) {//checking if data is in the stack or args
         buffer.emit(
-                "%" + ptrReg + " = getelementptr inbounds [ 50 x i32]* %stack, i32 0, i32 " + to_string(offset));
-    }
-    else{
+                "%" + ptrReg + " = getelementptr [ 50 x i32], [ 50 x i32]* %stack, i32 0, i32 " +
+                to_string(offset));
+    } else if (offset < 0 && currFuncArgs > 0) { //data is in args
 //                %t5= add offset+sizeofargs
         buffer.emit(
-                "%" + ptrReg + " = getelementptr inbounds [ "+to_string(currFuncArgs)+" x i32]* %args, i32 0, i32 " +
-                to_string(currFuncArgs+offset));
+                "%" + ptrReg + " = getelementptr [ " + to_string(currFuncArgs) + " x i32], [ " +
+                to_string(currFuncArgs) + " x i32]* %args, i32 0, i32 "
+                + to_string(currFuncArgs + offset));
+    } else {
+        cout << "SHIIT" << endl;
     }
-    buffer.emit("%" + reg + "= load i32* %" + ptrReg);
+    //%val = load i32, i32* %ptr
+    buffer.emit("%" + reg + "= load  i32, i32* %" + ptrReg);
     string idType = get_LLVM_Type(type);
     string dataReg = reg;
     if (idType != "i32") {
@@ -318,7 +381,7 @@ string loadVariable(int offset, string type) {
 }
 
 Exp::Exp(Node *ID) {
-    this->startLabel = buffer.genLabel();
+//    this->startLabel = buffer.genLabel();
     this->type = "";
     for (int i = tablesStack.size() - 1; i >= 0; i--) {
         for (int j = 0; j < tablesStack[i]->lines.size(); ++j) {
@@ -337,6 +400,8 @@ Exp::Exp(Node *ID) {
                     this->value = ID->value;
                     string XX = "enum";
                     this->type = XX + " " + enumsStack[i]->enumLines[j]->name;
+                    this->reg=pool.getReg();
+                    buffer.emit("%"+this->reg+ "= add i32 0, "+to_string(k));
                     return;
                 }
             }
@@ -347,12 +412,14 @@ Exp::Exp(Node *ID) {
 }
 
 Exp::Exp(Call *call) {
-    this->startLabel = buffer.genLabel();
+//    this->startLabel = buffer.genLabel();
     this->type = call->value;
+    this->reg = call->reg;
 }
 
-Exp::Exp(Exp *exp, string str) {//checking for if
-    this->startLabel = buffer.genLabel();
+Exp::Exp(Exp *exp, string
+str) {//checking for if
+//    this->startLabel = buffer.genLabel();
     if (exp->type != "BOOL") {
         output::errorMismatch(yylineno);
         exit(0);
@@ -360,6 +427,7 @@ Exp::Exp(Exp *exp, string str) {//checking for if
     value = exp->value;
     type = exp->type;
     boolVal = exp->boolVal;
+    this->reg = exp->reg;
 }
 
 EnumType::EnumType(Node *Enum, Node *id) {
@@ -387,7 +455,7 @@ Call::Call(Node *ID, ExpList *list) {
             string args = "(";//will hold the passed args themselves (i32 %x,i32 %y)
             if (i->types.size() == 1 + list->expList.size()) {//checking the number of arguments
                 for (int j = 0; j < list->expList.size(); j++) {
-                    args += get_LLVM_Type(i->types[j]) + "%" + list->expList[j].reg + ",";
+                    args += get_LLVM_Type(i->types[j]) + " %" + list->expList[j].reg + ",";
                     argsDecl += get_LLVM_Type(i->types[j]) + ",";
                     if (list->expList[j].type == "BYTE" && i->types[j] == "INT") {
                         continue;
@@ -404,10 +472,13 @@ Call::Call(Node *ID, ExpList *list) {
                 string funcName = ID->value;
                 string retType = get_LLVM_Type(this->value);
                 this->reg = pool.getReg();
-                buffer.emit("%" + reg + " = call " + retType + " " + argsDecl + "* @" + funcName + args);
-                /// this is a call with no parameters
-                ///     %call = call i32 (i32,i32)* @foo(i32 %whhh,i32 %whhh)
-
+                if (retType == "void") {
+                    buffer.emit("call " + retType + " @" + funcName + " " + args);
+                } else {
+                    buffer.emit("%" + reg + " = call " + retType + " @" + funcName + " " + args);
+                    /// this is a call with no parameters
+                    ///     %call = call i32  @foo(i32 %whhh,i32 %whhh)
+                }
                 return;//if we got here without errors, we found our function
             } else {
                 i->types.pop_back();
@@ -433,10 +504,13 @@ Call::Call(Node *ID) {
                 string funcName = ID->value;
                 string retType = get_LLVM_Type(this->value);
                 this->reg = pool.getReg();
-                buffer.emit("%" + reg + " = call " + retType + " ()* @" + funcName + "()");
-                /// this is a call with no parameters
-                ///            %call = call i32 ()* @foo()
-
+                if (retType == "void") {
+                    buffer.emit("call " + retType + " @" + funcName + "()");
+                } else {
+                    buffer.emit("%" + reg + " = call " + retType + " @" + funcName + "()");
+                    /// this is a call with no parameters
+                    ///            %call = call i32 @foo()
+                }
                 return;//if we got here without errors, we found our function
             } else {
                 vector<string> temp = {""};
@@ -515,7 +589,7 @@ FuncDecl::FuncDecl(RetType *retType, Node *ID, Formals *args) {
     auto temp = shared_ptr<Entry>(new Entry(this->value, this->types, 0));
     tablesStack.back()->lines.push_back(temp);
     currFucn = ID->value;
-    currFuncArgs= args->formals.size();
+    currFuncArgs = args->formals.size();
     string argString = ("(");//will be printed in the llvm command
 ///symbol table finished, starting to emit the LLVM
     if (args->formals.size() != 0) {//this is for the LLVM command
@@ -527,27 +601,26 @@ FuncDecl::FuncDecl(RetType *retType, Node *ID, Formals *args) {
         argString.append(")");// args is "()"
     }
     string retTypeString = get_LLVM_Type(retType->value);
-    buffer.emit("define " + retTypeString + " @" + this->value + argString);
+    buffer.emit("define " + retTypeString + " @" + this->value + argString + " {");
     //  define i32 @foo(i32,i32)
 
     ///initializing args and stack
 
     buffer.emit("%stack = alloca [50 x i32]");
     buffer.emit("%args = alloca [" + to_string(args->formals.size()) + " x i32]");//%args= alloca [10 x i32]
-    int size=args->formals.size();
-    for (int i = 0; i <size; i++) {
+    int size = args->formals.size();
+    for (int i = 0; i < size; i++) {
         string ptrReg = pool.getReg();//gets a new register to hold the ptr
-        //%ptr = getelementptr inbounds[10 x i32]* %args, i32 0, i32 0
         //this is the syntax from class %first = getelementptr [10 x i32],[10 x i32]* %MyArr, i32 0, i32 0
         buffer.emit(
-                "%" + ptrReg + " = getelementptr inbounds [" + to_string(size) + " x i32]* %args, i32 0, i32 " +
-                to_string(currFuncArgs-i-1));//               4
+                "%" + ptrReg + " = getelementptr [" + to_string(size) + " x i32], [" + to_string(size) +
+                " x i32]* %args, i32 0, i32 " + to_string(currFuncArgs - i - 1));//               4
         string dataReg = to_string(i);//                    0
         string argtype = get_LLVM_Type(args->formals[i]->type);
         if (argtype != "i32") {
             //%X = zext i8 %t3 to i32
             dataReg = pool.getReg();
-            buffer.emit("%" + dataReg + "=zext " + argtype + " %" + to_string(i) + " to i32");
+            buffer.emit("%" + dataReg + " = zext " + argtype + " %" + to_string(i) + " to i32");
         }
         //store i32 %t3, i32* %ptr
         buffer.emit("store i32 %" + dataReg + ", i32* %" + ptrReg);
@@ -572,18 +645,19 @@ Statement::Statement(Type *type, Node *id) {
     tablesStack.back()->lines.emplace_back(temp);
     data = "type id";
     this->reg = pool.getReg();
-    buffer.emit("%" + this->reg + " = add i32 0,0");//%reg= add i8 r3, r3
-    string ptr = pool.getReg();
-    buffer.emit("%" + ptr + " = getelementptr inbounds[50 x i32]* %stack, i32 0, i32 " + to_string(offset));
     string expType = get_LLVM_Type(type->value);
+    buffer.emit("%" + this->reg + " = add " + expType + " 0,0");//%reg= add i8 r3, r3
+    string ptr = pool.getReg();
+    //%first = getelementptr [10 x i32],[10 x i32]* %MyArr, i32 0, i32 0
+    buffer.emit("%" + ptr + " = getelementptr [50 x i32], [50 x i32]* %stack, i32 0, i32 " + to_string(offset));
     string dataReg = reg;
     if (expType != "i32") {
         //%X = zext i8 %t3 to i32
         dataReg = pool.getReg();
-        buffer.emit("%" + dataReg + "=zext " + expType + " %" + reg + " to i32");
+        buffer.emit("%" + dataReg + " = zext " + expType + " %" + reg + " to i32");
     }
-    buffer.emit("store i32 %" + dataReg + "i32* %" + ptr);
-    //%ptr = getelementptr inbounds[10 x i32]* %args, i32 0, i32 0
+    buffer.emit("store i32 %" + dataReg + ", i32* %" + ptr);
+    //%ptr = getelementptr [10 x i32]*, [10 x i32]* %args, i32 0, i32 0
     //store i32 %t3, i32* %ptr
 
 }
@@ -617,10 +691,10 @@ Statement::Statement(EnumType *enumType, Node *id) {
     this->reg = pool.getReg();
     buffer.emit("%" + this->reg + " = add i32 0,0");//%reg= add i8 r3, r3
     string ptr = pool.getReg();
-    buffer.emit("%" + ptr + " = getelementptr inbounds[50 x i32]* %stack, i32 0, i32 " + to_string(offset));
+    buffer.emit("%" + ptr + " = getelementptr [50 x i32], [50 x i32]* %stack, i32 0, i32 " + to_string(offset));
     string dataReg = reg;
-    buffer.emit("store i32 %" + dataReg + "i32* %" + ptr);
-    //%ptr = getelementptr inbounds[10 x i32]* %args, i32 0, i32 0
+    buffer.emit("store i32 %" + dataReg + ", i32* %" + ptr);
+    //%ptr = getelementptr [10 x i32]*, [10 x i32]* %args, i32 0, i32 0
     //store i32 %t3, i32* %ptr
 }
 
@@ -640,18 +714,27 @@ Statement::Statement(Type *type, Node *id, Exp *exp) {
     }
 
     data = exp->value;
+
     int offset = offsetsStack.back()++;
     auto temp = shared_ptr<Entry>(new Entry(id->value, type->value, offset));
     tablesStack.back()->lines.emplace_back(temp);
 
     this->reg = pool.getReg();
-    buffer.emit("%" + this->reg + " = add i32 0,%" + exp->reg);//%reg= add i8 %r3, %r3
+    string expType = get_LLVM_Type(type->value);
+
+    buffer.emit("%" + this->reg + " = add " + expType + " 0,%" + exp->reg);//%reg= add i8 %r3, %r3
     string ptr = pool.getReg();
-    buffer.emit("%" + ptr + " = getelementptr inbounds[50 x i32]* %stack, i32 0, i32 " + to_string(offset));
+    buffer.emit("%" + ptr + " = getelementptr [50 x i32], [50 x i32]* %stack, i32 0, i32 " + to_string(offset));
     string dataReg = reg;
-    buffer.emit("store i32 %" + dataReg + "i32* %" + ptr);
-    //%ptr = getelementptr inbounds[10 x i32]* %args, i32 0, i32 0
+    if (expType != "i32") {
+        //%X = zext i8 %t3 to i32
+        dataReg = pool.getReg();
+        buffer.emit("%" + dataReg + " = zext " + expType + " %" + reg + " to i32");
+    }
+    buffer.emit("store i32 %" + dataReg + ", i32* %" + ptr);
+    //%ptr = getelementptr [10 x i32]*, [10 x i32]* %args, i32 0, i32 0
     //store i32 %t3, i32* %ptr
+
 }
 
 Statement::Statement(EnumType *enumType, Node *id, Exp *exp) {
@@ -682,9 +765,10 @@ Statement::Statement(EnumType *enumType, Node *id, Exp *exp) {
     }
     data = "null";
     for (int k = 0; k < enumVals.size(); ++k) {
-        if (enumVals[k] == exp->value)
+        if (enumVals[k] == exp->value) {
             data = to_string(k);
-        break;
+            break;
+        }
     }
 
     if (data == "null") {
@@ -709,10 +793,10 @@ Statement::Statement(EnumType *enumType, Node *id, Exp *exp) {
     this->reg = pool.getReg();
     buffer.emit("%" + this->reg + " = add i32 0," + data);//%reg= add i8 r3, r3
     string ptr = pool.getReg();
-    buffer.emit("%" + ptr + " = getelementptr inbounds[50 x i32]* %stack, i32 0, i32 " + to_string(offset));
+    buffer.emit("%" + ptr + " = getelementptr [50 x i32], [50 x i32]* %stack, i32 0, i32 " + to_string(offset));
     string dataReg = reg;
-    buffer.emit("store i32 %" + dataReg + "i32* %" + ptr);
-    //%ptr = getelementptr inbounds[10 x i32]* %args, i32 0, i32 0
+    buffer.emit("store i32 %" + dataReg + ", i32* %" + ptr);
+    //%ptr = getelementptr [10 x i32]*, [10 x i32]* %args, i32 0, i32 0
     //store i32 %t3, i32* %ptr
 }
 
@@ -724,20 +808,20 @@ string doEmitting(string data, string type, int offset) {
     if (argtype != "i32") {
         //%X = zext  i8 %t6 to i32
         datareg = pool.getReg();
-        buffer.emit("%" + datareg + "=zext " + argtype + " %" + data + " to i32");
+        buffer.emit("%" + datareg + " = zext " + argtype + " %" + data + " to i32");
     }
     buffer.emit("%" + reg + " = add i32 0,%" + datareg);//%reg= add i8 r3, r3
     string ptr = pool.getReg();
     if (offset >= 0) {
         buffer.emit(
-                "%" + ptr + " = getelementptr inbounds [ 50 x i32]* %stack, i32 0, i32 " + to_string(offset));
-    }
-    else{
+                "%" + ptr + " = getelementptr [ 50 x i32], [ 50 x i32]* %stack, i32 0, i32 " + to_string(offset));
+    } else if (offset < 0 && currFuncArgs > 0) {
         buffer.emit(
-                "%" + ptr + " = getelementptr inbounds [ "+to_string(currFuncArgs)+" x i32]* %args, i32 0, i32 " +
-                to_string(currFuncArgs+offset));
-    }
-    buffer.emit("store i32 %" + reg + "i32* %" + ptr);
+                "%" + ptr + " = getelementptr [ " + to_string(currFuncArgs) + " x i32], [ " +
+                to_string(currFuncArgs) +
+                " x i32]* %args, i32 0, i32 " + to_string(currFuncArgs + offset));
+    } else cout << "FUCK" << endl;
+    buffer.emit("store i32 %" + reg + ", i32* %" + ptr);
     return reg;
     //%ptr = getelementptr inbounds[10 x i32]* %args, i32 0, i32 0
     //store i32 %t3, i32* %ptr
@@ -777,7 +861,8 @@ Statement::Statement(Node *id, Exp *exp) {
 }
 
 //%X = trunc i32 257 to i8
-Statement::Statement(string retType) {
+Statement::Statement(string
+                     retType) {
     for (int i = tablesStack.size() - 1; i >= 0; i--) {
         for (int j = 0; j <
                         tablesStack[i]->lines.size(); ++j) {//finding in symbol table
@@ -786,6 +871,7 @@ Statement::Statement(string retType) {
                 if (tablesStack[i]->lines[j]->types[size - 1] ==
                     retType) {//checking types
                     data = "ret val of void";
+                    buffer.emit("ret void");
                     return;
                 } else {
                     output::errorMismatch(yylineno);
@@ -812,9 +898,14 @@ Statement::Statement(Exp *exp) {
                 if (tablesStack[i]->lines[j]->types[size - 1] ==
                     retType) {//checking types
                     data = exp->value;
+                    string LLVMRetype = get_LLVM_Type(retType);
+                    buffer.emit("ret " + LLVMRetype + " %" + exp->reg);
                     return;
                 } else if (retType == "BYTE" && tablesStack[i]->lines[j]->types[size - 1] == "INT") {
                     data = exp->value; //allowing the case of retType to be byte in case it was int
+                    string dataReg = pool.getReg();
+                    buffer.emit(dataReg + " = zext i8 " + exp->reg + " to i32");
+                    buffer.emit("ret i32 %" + dataReg);
                     return;
                 } else {
                     output::errorMismatch(yylineno);
@@ -851,6 +942,29 @@ Program::Program() {
     tablesStack.emplace_back(global);
     enumsStack.emplace_back(globalEnum);
     offsetsStack.emplace_back(0);
+    ///finished symbol table, handling the declarations and defines
+
+    buffer.emitGlobal("declare i32 @printf(i8*, ...)");
+    buffer.emitGlobal("declare void @exit(i32)");
+
+    buffer.emitGlobal("@.int_specifier = constant [4 x i8] c\"%d\\0A\\00\"");
+    buffer.emitGlobal("@.str_specifier = constant [4 x i8] c\"%s\\0A\\00\"");
+    buffer.emitGlobal("@zero = constant [22 x i8] c\"Error division by zero\"");
+
+    buffer.emitGlobal("define void @printi(i32) {");
+    buffer.emitGlobal(
+            "call i32 (i8*, ...) @printf(i8* getelementptr ([4 x i8], [4 x i8]* @.int_specifier, i32 0, i32 0), i32 %0)");
+    buffer.emitGlobal("ret void");
+    buffer.emitGlobal("}");
+
+
+    buffer.emitGlobal("define void @print(i8*) {");
+    buffer.emitGlobal(
+            "call i32 (i8*, ...) @printf(i8* getelementptr ([4 x i8], [4 x i8]* @.str_specifier, i32 0, i32 0), i8* %0)");
+    buffer.emitGlobal("ret void");
+    buffer.emitGlobal("}");
+
+
 }
 
 

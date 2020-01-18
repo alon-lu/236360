@@ -14,7 +14,6 @@
 extern int yylineno;
 using namespace std;
 
-void endFunc();
 
 
 //Single entry for symbol table
@@ -253,6 +252,7 @@ public:
     EnumDecl(Node *id, EnumeratorList *lst);
 
 };
+void endFunc(RetType *retType);
 
 class Enums : public Node {
 public:
