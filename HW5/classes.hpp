@@ -115,6 +115,7 @@ public:
     vector <pair<int,BranchLabelIndex>> trueList;
     vector <pair<int,BranchLabelIndex>> falseList;
     std::string startLabel;
+    int loc;
 
     // handles NUM,B,string,true,false
     Exp(Node *terminal, string str);
@@ -122,7 +123,7 @@ public:
     Exp(Node *Not, Exp *exp);
 
     ///handels RELOP,MUL,ADD,OR,AND
-    Exp(Exp *left, Node *op, Exp *right, string str);
+    Exp(Exp *left, Node *op, Exp *right, string str, Exp *shortC = nullptr);
 
     ///check if the string is lost or not
     Exp(Exp *exp);
@@ -343,8 +344,24 @@ public:
     Program();
 };
 
+class M : public Node{
+public:
+    string Label;
+
+    M();
+};
+
+class N : public Node{
+public:
+    string Label;
+    int loc;
+    N();
+};
 
 
+void ifBp(M *Label1, Exp *exp);
+
+void ifElseBp(M *Label1, N *Label2, Exp *exp);
 
 //#define YYSTYPE yystype
 #endif //CLASSES_HPP
