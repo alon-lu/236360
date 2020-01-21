@@ -60,7 +60,6 @@ public:
 
 
 void inLoop();
-void outLoop();
 
 void openScope();
 
@@ -77,8 +76,9 @@ class Node {
 public:
     string reg;
     string value;
-
+    string instr;
     Node(string str) {
+        instr = "";
         if (str == "void") {
             value = "VOID";
         } else if (str == "bool") {
@@ -92,6 +92,7 @@ public:
     }
 
     Node() {
+        instr = "";
         value = "";
     }
 
@@ -117,10 +118,12 @@ public:
 
 class N : public Node{
 public:
-    string Label;
+    string instr;
     int loc;
     N();
 };
+
+class P;
 
 class Exp : public Node {
 public:
@@ -137,7 +140,7 @@ public:
     Exp(Node *Not, Exp *exp);
 
     ///handels RELOP,MUL,ADD,OR,AND
-    Exp(Exp *left, Node *op, Exp *right, string str, M *shortC = nullptr);
+    Exp(Exp *left, Node *op, Exp *right, string str, P *shortC = nullptr);
 
     ///check if the string is lost or not
     Exp(Exp *exp);
@@ -153,6 +156,16 @@ public:
     Exp(Exp *exp, string str);
 };
 
+class P : public Node{
+public:
+    string instr;
+    int loc;
+    P(Exp *left);
+};
+
+
+
+Node* docompare(Exp *left);
 
 class EnumType : public Node {
 public:
@@ -287,7 +300,8 @@ class Statement : public Node {
 public:
     string data;
     string reg;
-
+    vector <pair<int,BranchLabelIndex>> breakList;
+    vector <pair<int,BranchLabelIndex>> continueList;
 //      Type ID SC
     Statement(Type *type, Node *id);
 
@@ -301,9 +315,7 @@ public:
     Statement(EnumType *enumType, Node *id, Exp *exp);
 
 //    EnumDecl
-    Statement(EnumDecl *enumDecl){
-        value = "was enumdecl";
-    }
+    Statement(EnumDecl *enumDecl);
 
 //    ID ASSIGN Exp SC
     Statement(Node *id, Exp *exp);
@@ -315,36 +327,29 @@ public:
     Statement(Exp *exp);
 
 //    LBRACE Statements RBRACE
-    Statement(Statements *sts) {
-        data = "this was a block";
-    }
+    Statement(Statements *sts);
 
     // handels if, if else, while
-    Statement(string str, Exp *exp) {
-        if (exp->type != "BOOL") {
-            output::errorMismatch(yylineno);
-            exit(0);
-        }
-        data = "this was an if/ if else /while";
-    }
+    Statement(string str, Exp *exp);
 
 
 // handling break and continue
     Statement(Node *word);
 
 
-    Statement(Call *call) {
-        data = "this was a call for a function";
-    };
+    Statement(Call *call);
 
 };
 
+void outLoop(N* firstL, P* secondL, Statement* st);
 
 class Statements : public Node {
 public:
-    Statements(Statement *st) {};
+    vector <pair<int,BranchLabelIndex>> breakList;
+    vector <pair<int,BranchLabelIndex>> continueList;
+    Statements(Statement *st);
 
-    Statements(Statements *sts, Statement *st) {};
+    Statements(Statements *sts, Statement *st);
 };
 
 class Funcs : public Node {
