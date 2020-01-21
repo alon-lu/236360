@@ -236,10 +236,28 @@ Exp::Exp(Exp *left, Node *op, Exp *right, string str) {
             } else if (op->value.compare("*") == 0) {
                 operation = "mul";
             } else if (op->value.compare("/") == 0) {
+<<<<<<< Updated upstream
                 buffer.emit("%cond = icmp eq i32 %" + right->reg + ", 0");
                 buffer.emit("br i1 %cond, lablel %zeroflag, label %dodiv");
                 buffer.emit("zeroflag: ");//todo: jump to function
                 buffer.emit("dodiv:");
+=======
+                string cond = pool.getReg();
+                buffer.emit("%" + cond + " = icmp eq i32 %" + right->reg + ", 0");
+                int Bfirst = buffer.emit("br i1 %" + cond + ", label @, label @");//label %zeroflag, label %dodiv
+                string Lfirst = buffer.genLabel();//zeroflag
+                string zero = pool.getReg();
+                buffer.emit(
+                        "%" + zero + " = getelementptr [22 x i8], [22 x i8]* @zero, i32 0, i32 0");
+                buffer.emit(
+                        "call void @print(i8* %" + zero + ")");//  call void (i8*)* @print(i8* %str)
+                buffer.emit("call void @exit(i32 0)");
+                int Bsecond = buffer.emit("br label @");//dodiv
+                string Lsecond = buffer.genLabel();//zeroflag
+                buffer.bpatch(buffer.makelist({Bfirst, FIRST}), Lfirst);
+                buffer.bpatch(buffer.makelist({Bfirst, SECOND}), Lsecond);
+                buffer.bpatch(buffer.makelist({Bsecond, FIRST}), Lsecond);
+>>>>>>> Stashed changes
                 operation = "sdiv";
             }
             buffer.emit(this->reg + " = " + operation + " " + isize + " " + left->reg + ", " + right->reg);
@@ -253,6 +271,7 @@ Exp::Exp(Exp *left, Node *op, Exp *right, string str) {
 
         if (str.compare("AND") == 0 || str.compare("OR") == 0) {
             string boolop;
+<<<<<<< Updated upstream
             if (op->value.compare("AND") == 0) {
                 buffer.bpatch(left->trueList, right->startLabel);
                 this->falseList = buffer.merge(right->falseList, left->falseList);
@@ -261,6 +280,38 @@ Exp::Exp(Exp *left, Node *op, Exp *right, string str) {
                 buffer.bpatch(left->falseList, right->startLabel);
                 this->trueList = buffer.merge(right->trueList, left->trueList);
                 this->falseList = right->falseList;
+=======
+            if (op->value.compare("and") == 0) {
+                buffer.emit(
+                        "%" + this->reg + " = and i1 %" + right->reg + ", %" + left->reg);
+                // <result> = and <ty> <op1>, <op2>
+                // int loc2 = buffer.emit("br label @");//label is end
+                // string leftFalse = buffer.genLabel();
+                // int loc3 = buffer.emit("br label @");//label is end
+                // string end = buffer.genLabel();
+                // buffer.emit(
+                //         "%" + this->reg + " = phi i1 [%" + right->reg + ", %" +
+                //         shortC->startLabel + "],[0, %" + leftFalse + "]");
+                // buffer.bpatch(buffer.makelist({shortC->loc, FIRST}), shortC->startLabel);
+                // buffer.bpatch(buffer.makelist({shortC->loc, SECOND}), leftFalse);
+                // buffer.bpatch(buffer.makelist({loc2, FIRST}), end);
+                // buffer.bpatch(buffer.makelist({loc3, FIRST}), end);
+
+            } else if (op->value.compare("or") == 0) {
+                buffer.emit(
+                        "%" + this->reg + " = or i1 %" + right->reg + ", %" + left->reg);
+                // int loc2 = buffer.emit("br label @");//label is end
+                // string leftTrue = buffer.genLabel();
+                // int loc3 = buffer.emit("br label @");//label is end
+                // string end = buffer.genLabel();
+                // buffer.emit(
+                //         "%" + this->reg + " = phi i1 [%" + right->reg + ", %" +
+                //         shortC->startLabel + "],[1, %" + leftTrue + "]");
+                // buffer.bpatch(buffer.makelist({shortC->loc, FIRST}), leftTrue);
+                // buffer.bpatch(buffer.makelist({shortC->loc, SECOND}), shortC->startLabel);
+                // buffer.bpatch(buffer.makelist({loc2, FIRST}), end);
+                // buffer.bpatch(buffer.makelist({loc3, FIRST}), end);
+>>>>>>> Stashed changes
             }
 
         } else {
@@ -351,11 +402,42 @@ Exp::Exp(Call *call) {
     this->type = call->value;
 }
 
+<<<<<<< Updated upstream
 Exp::Exp(Exp *exp, string str) {//checking for if
     this->startLabel = buffer.genLabel();
     if (exp->type != "BOOL") {
         output::errorMismatch(yylineno);
         exit(0);
+=======
+Exp::Exp(Exp *exp, string str) {//checking for if and short circuit
+//    this->startLabel = buffer.genLabel();
+    if (str == "STRING") {
+        if (exp->type != "BOOL") {
+            output::errorMismatch(yylineno);
+            exit(0);
+        }
+        value = exp->value;
+        type = exp->type;
+        boolVal = exp->boolVal;
+        this->reg = exp->reg;
+        int loc = buffer.emit("br i1 %" + this->reg + ", label @, label @");
+        trueList = buffer.makelist(pair<int, BranchLabelIndex>(loc, FIRST));
+        falseList = buffer.makelist(pair<int, BranchLabelIndex>(loc, SECOND));
+        return;
+    } else {
+        string cond = pool.getReg();
+        buffer.emit("%" + cond + " = icmp eq i1 %" + exp->reg + ", 1");
+        this->loc = buffer.emit(
+                "br i1 %" + cond +
+                ", label @, label @");//labels are this->startLabel,end
+        this->startLabel = buffer.genLabel();
+        this->falseList = exp->falseList;
+        this->trueList = exp->trueList;
+        this->reg = exp->reg;
+        this->value = exp->value;
+        this->type = exp->type;
+        this->boolVal = exp->boolVal;
+>>>>>>> Stashed changes
     }
     value = exp->value;
     type = exp->type;
@@ -645,12 +727,36 @@ Statement::Statement(Type *type, Node *id, Exp *exp) {
     tablesStack.back()->lines.emplace_back(temp);
 
     this->reg = pool.getReg();
+<<<<<<< Updated upstream
     buffer.emit("%" + this->reg + " = add i32 0,%" + exp->reg);//%reg= add i8 %r3, %r3
     string ptr = pool.getReg();
     buffer.emit("%" + ptr + " = getelementptr inbounds[50 x i32]* %stack, i32 0, i32 " + to_string(offset));
     string dataReg = reg;
     buffer.emit("store i32 %" + dataReg + "i32* %" + ptr);
     //%ptr = getelementptr inbounds[10 x i32]* %args, i32 0, i32 0
+=======
+    string expType = get_LLVM_Type(type->value);
+    string dataReg = exp->reg;
+    if(type->value == "INT" && exp->type == "BYTE"){
+        //%X = zext i8 %t3 to i32
+        dataReg = pool.getReg();
+        buffer.emit("%" + dataReg + " = zext i8 %" + exp->reg + " to i32");
+    }
+    buffer.emit("%" + this->reg + " = add " + expType + " 0,%" + dataReg);//%reg= add i8 %r3, %r3
+    string ptr = pool.getReg();
+    buffer.emit("%" + ptr +
+                " = getelementptr [50 x i32], [50 x i32]* %stack, i32 0, i32 " +
+                to_string(offset));
+    dataReg = reg;
+    if (expType != "i32") {
+        //%X = zext i8 %t3 to i32
+        dataReg = pool.getReg();
+        buffer.emit(
+                "%" + dataReg + " = zext " + expType + " %" + reg + " to i32");
+    }
+    buffer.emit("store i32 %" + dataReg + ", i32* %" + ptr);
+    //%ptr = getelementptr [10 x i32]*, [10 x i32]* %args, i32 0, i32 0
+>>>>>>> Stashed changes
     //store i32 %t3, i32* %ptr
 }
 
@@ -815,6 +921,12 @@ Statement::Statement(Exp *exp) {
                     return;
                 } else if (retType == "BYTE" && tablesStack[i]->lines[j]->types[size - 1] == "INT") {
                     data = exp->value; //allowing the case of retType to be byte in case it was int
+<<<<<<< Updated upstream
+=======
+                    string dataReg = pool.getReg();
+                    buffer.emit("%" + dataReg + " = zext i8 " + exp->reg + " to i32");
+                    buffer.emit("ret i32 %" + dataReg);
+>>>>>>> Stashed changes
                     return;
                 } else {
                     output::errorMismatch(yylineno);

@@ -88,9 +88,15 @@ Type : 		 			 INT {$$= new Type ($1);}////done
 								 | BOOL {$$= new Type ($1);};//done
 EnumType : 	  	 ENUM ID {$$= new EnumType($1,$2);};//done
 Exp :      	  	 LPAREN Exp RPAREN {$$= new Exp(dynamic_cast<Exp*> ($2));}//done
+<<<<<<< Updated upstream
 								 | Exp AND Exp {$$= new Exp(dynamic_cast<Exp*> ($1),$2,dynamic_cast<Exp*> ($3),"AND");}//done
 								 | Exp OR Exp {$$= new Exp(dynamic_cast<Exp*> ($1),$2,dynamic_cast<Exp*> ($3),"OR");}//done
 								 | ID {$$= new Exp($1);}//done
+=======
+								 | Exp AND Exp {$$= new Exp(dynamic_cast<Exp*> ($1),$2,dynamic_cast<Exp*> ($3),"AND", dynamic_cast<Exp*> ($3));}//done
+								 | Exp OR Exp {$$= new Exp(dynamic_cast<Exp*> ($1),$2,dynamic_cast<Exp*> ($3),"OR", dynamic_cast<Exp*> ($3));}//done
+								 | ID {$$= new Exp($1);} //done
+>>>>>>> Stashed changes
 								 | Call {$$= new Exp(dynamic_cast<Call*> ($1));}//done
 								 | NUM {$$= new Exp($1,"num");}//done
 								 | NUM B {$$= new Exp($1,"B");}//done
