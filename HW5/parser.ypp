@@ -90,8 +90,8 @@ Type : 		 			 INT {$$= new Type ($1);}//
 								 | BOOL {$$= new Type ($1);};
 EnumType : 	  	 ENUM ID {$$= new EnumType($1,$2);};
 Exp :      	  	 LPAREN Exp RPAREN {$$= new Exp(dynamic_cast<Exp*> ($2));}//done
-								 | Exp {doCompare(dynamic_cast<Exp*> ($1));} N AND Exp {$$= new Exp(dynamic_cast<Exp*> ($1),$4,dynamic_cast<Exp*> ($5),"AND", dynamic_cast<Exp*> ($3));}//done
-								 | Exp {doCompare(dynamic_cast<Exp*> ($1));} N OR Exp  {$$= new Exp(dynamic_cast<Exp*> ($1),$4,dynamic_cast<Exp*> ($5),"OR", dynamic_cast<Exp*> ($3));}//done
+								 | Exp AND M Exp {$$= new Exp(dynamic_cast<Exp*> ($1),$2,dynamic_cast<Exp*> ($4),"AND", dynamic_cast<M*> ($3));}//done
+								 | Exp OR M Exp  {$$= new Exp(dynamic_cast<Exp*> ($1),$2,dynamic_cast<Exp*> ($4),"OR", dynamic_cast<M*> ($3));}//done
 								 | ID {$$= new Exp($1);} //done
 								 | Call {$$= new Exp(dynamic_cast<Call*> ($1));}//done
 								 | NUM {$$= new Exp($1,"num");}//done
@@ -111,9 +111,9 @@ Exp :      	  	 LPAREN Exp RPAREN {$$= new Exp(dynamic_cast<Exp*> ($2));}//done
 FRUIT:	Exp {$$= new Exp(dynamic_cast<Exp*>($1),"STRING");};
 OS:						 		{openScope();};
 CS:								{closeScope();};
+L:                              {$$ = new L();};
 M:                              {$$ = new M();};
 N:                              {$$ = new N();};
-
 %%
 
 

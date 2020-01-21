@@ -108,6 +108,20 @@ public:
 
 class Call;//declaring class Call son of node
 
+class M : public Node{
+public:
+    string instr;
+
+    M();
+};
+
+class N : public Node{
+public:
+    string Label;
+    int loc;
+    N();
+};
+
 class Exp : public Node {
 public:
     string type;
@@ -123,7 +137,7 @@ public:
     Exp(Node *Not, Exp *exp);
 
     ///handels RELOP,MUL,ADD,OR,AND
-    Exp(Exp *left, Node *op, Exp *right, string str, Exp *shortC = nullptr);
+    Exp(Exp *left, Node *op, Exp *right, string str, M *shortC = nullptr);
 
     ///check if the string is lost or not
     Exp(Exp *exp);
@@ -344,19 +358,7 @@ public:
     Program();
 };
 
-class M : public Node{
-public:
-    string Label;
 
-    M();
-};
-
-class N : public Node{
-public:
-    string Label;
-    int loc;
-    N();
-};
 
 
 void ifBp(M *Label1, Exp *exp);

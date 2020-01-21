@@ -150,6 +150,10 @@ Exp::Exp(Node *terminal, string
 str) : Node(terminal->value) {
 //    this->startLabel = buffer.genLabel();
     this->type = "";
+    vector <pair<int,BranchLabelIndex>> listFalse;
+    this->falseList = listFalse;
+    vector <pair<int,BranchLabelIndex>> listTrue;
+    this->trueList = listTrue;
     if (str.compare("num") == 0) {
         type = "INT";
         this->reg = pool.getReg();
@@ -175,10 +179,14 @@ str) : Node(terminal->value) {
         this->reg = pool.getReg();
         if (value.compare("true") == 0) {
             boolVal = true;
-            buffer.emit("%" + this->reg + " = add i1 0,1");
+            int loc = buffer.emit("br label @");
+            this->trueList = buffer.makelist({loc, FIRST});
+            //buffer.emit("%" + this->reg + " = add i1 0,1");
         } else {
             boolVal = false;
-            buffer.emit("%" + this->reg + " = add i1 0,0");
+            int loc = buffer.emit("br label @");
+            this->falseList = buffer.makelist({loc, FIRST});
+            //buffer.emit("%" + this->reg + " = add i1 0,0");
         }
     }
     if (str.compare("B") == 0) {
@@ -201,13 +209,19 @@ Exp::Exp(Node *Not, Exp *exp) {
     }
     this->type = "BOOL";
     this->reg = pool.getReg();
-    buffer.emit("%" + this->reg + " = add i1 1,%" + exp->reg);
+    this->falseList = exp->trueList;
+    this->trueList = exp->falseList;
 }
 
-Exp::Exp(Exp *left, Node *op, Exp *right, string str, Exp *shortC) {
+
+Exp::Exp(Exp *left, Node *op, Exp *right, string str, M *shortC) {
     //this->startLabel = buffer.genLabel();
     this->type = "";
     this->reg = pool.getReg();
+    vector <pair<int,BranchLabelIndex>> listFalse;
+    this->falseList = listFalse;
+    vector <pair<int,BranchLabelIndex>> listTrue;
+    this->trueList = listTrue;
     if ((left->type.compare("BYTE") == 0 ||
          left->type.compare("INT") == 0) &&
         (right->type.compare("BYTE") == 0 ||
@@ -264,7 +278,9 @@ Exp::Exp(Exp *left, Node *op, Exp *right, string str, Exp *shortC) {
             buffer.emit(
                     "%" + this->reg + " = icmp " + relop + " " + isize + " %" +
                     dataRegL + ", %" + dataRegR);
-
+            int loc = buffer.emit("br i1 " + this->reg + ", label @, label @");
+            this->trueList = buffer.makelist({loc, FIRST});
+            this->falseList = buffer.makelist({loc, SECOND});
         }
         if (str.compare("ADD") == 0 || str.compare("MUL") == 0) {
             this->type = "BYTE";
@@ -324,30 +340,36 @@ Exp::Exp(Exp *left, Node *op, Exp *right, string str, Exp *shortC) {
         if (str.compare("AND") == 0 || str.compare("OR") == 0) {
             string boolop;
             if (op->value.compare("and") == 0) {
-                int loc2 = buffer.emit("br label @");//label is end
+                buffer.bpatch(left->trueList, shortC->instr);
+                this->trueList = right->trueList;
+                this->falseList = buffer.merge(left->falseList, right->falseList);
+                /*int loc2 = buffer.emit("br label @");//label is end
                 string leftFalse = buffer.genLabel();
                 int loc3 = buffer.emit("br label @");//label is end
                 string end = buffer.genLabel();
                 buffer.emit(
                         "%" + this->reg + " = phi i1 [%" + right->reg + ", %" +
-                        shortC->startLabel + "],[0, %" + leftFalse + "]");
-                buffer.bpatch(buffer.makelist({shortC->loc, FIRST}), shortC->startLabel);
+                        shortC->Label + "],[0, %" + leftFalse + "]");
+                buffer.bpatch(buffer.makelist({shortC->loc, FIRST}), shortC->Label);
                 buffer.bpatch(buffer.makelist({shortC->loc, SECOND}), leftFalse);
                 buffer.bpatch(buffer.makelist({loc2, FIRST}), end);
-                buffer.bpatch(buffer.makelist({loc3, FIRST}), end);
+                buffer.bpatch(buffer.makelist({loc3, FIRST}), end);*/
 
             } else if (op->value.compare("or") == 0) {
-                int loc2 = buffer.emit("br label @");//label is end
+                buffer.bpatch(left->falseList, shortC->instr);
+                this->falseList = right->falseList;
+                this->trueList = buffer.merge(left->trueList, right->trueList);
+                /*int loc2 = buffer.emit("br label @");//label is end
                 string leftTrue = buffer.genLabel();
                 int loc3 = buffer.emit("br label @");//label is end
                 string end = buffer.genLabel();
                 buffer.emit(
                         "%" + this->reg + " = phi i1 [%" + right->reg + ", %" +
-                        shortC->startLabel + "],[1, %" + leftTrue + "]");
+                        shortC->Label + "],[1, %" + leftTrue + "]");
                 buffer.bpatch(buffer.makelist({shortC->loc, FIRST}), leftTrue);
-                buffer.bpatch(buffer.makelist({shortC->loc, SECOND}), shortC->startLabel);
+                buffer.bpatch(buffer.makelist({shortC->loc, SECOND}), shortC->Label);
                 buffer.bpatch(buffer.makelist({loc2, FIRST}), end);
-                buffer.bpatch(buffer.makelist({loc3, FIRST}), end);
+                buffer.bpatch(buffer.makelist({loc3, FIRST}), end);*/
             }
 
         } else {
@@ -366,6 +388,8 @@ Exp::Exp(Exp *exp) {
     this->type = exp->type;
     this->boolVal = exp->boolVal;
     this->reg = exp->reg;
+    this->trueList = exp->trueList;
+    this->falseList = exp->falseList;
 }
 
 Exp::Exp(Type *type, Exp *exp) {//cant see type because it is announced later
@@ -376,6 +400,8 @@ Exp::Exp(Type *type, Exp *exp) {//cant see type because it is announced later
             value = exp->value;
             this->type = "INT";
             this->reg = exp->reg;
+            this->falseList = exp->falseList;
+            this->trueList = exp->trueList;
         }
     }
 }
@@ -415,6 +441,10 @@ string loadVariable(int offset, string type) {
 Exp::Exp(Node *ID) {
 //    this->startLabel = buffer.genLabel();
     this->type = "";
+    vector <pair<int,BranchLabelIndex>> listFalse;
+    this->falseList = listFalse;
+    vector <pair<int,BranchLabelIndex>> listTrue;
+    this->trueList = listTrue;
     for (int i = tablesStack.size() - 1; i >= 0; i--) {
         for (int j = 0; j < tablesStack[i]->lines.size(); ++j) {
             if (tablesStack[i]->lines[j]->name == ID->value) {
@@ -450,11 +480,15 @@ Exp::Exp(Call *call) {
 //    this->startLabel = buffer.genLabel();
     this->type = call->value;
     this->reg = call->reg;
+    vector <pair<int,BranchLabelIndex>> listFalse;
+    this->falseList = listFalse;
+    vector <pair<int,BranchLabelIndex>> listTrue;
+    this->trueList = listTrue;
+
 }
 
 Exp::Exp(Exp *exp, string str) {//checking for if and short circuit
 //    this->startLabel = buffer.genLabel();
-    if (str == "STRING") {
         if (exp->type != "BOOL") {
             output::errorMismatch(yylineno);
             exit(0);
@@ -463,28 +497,15 @@ Exp::Exp(Exp *exp, string str) {//checking for if and short circuit
         type = exp->type;
         boolVal = exp->boolVal;
         this->reg = exp->reg;
-        int loc = buffer.emit("br i1 " + this->reg + ", label @, label @");
-        trueList = buffer.makelist(pair<int, BranchLabelIndex>(loc, FIRST));
-        falseList = buffer.makelist(pair<int, BranchLabelIndex>(loc, SECOND));
-        return;
-    }else{
-        string cond = pool.getReg();
-        buffer.emit("%" + cond + " = icmp eq i1 %" + exp->reg + ", 1");
-        this->loc = buffer.emit(
-                "br i1 %" + cond +
-                ", label @, label @");//labels are this->startLabel,end
-        this->startLabel = buffer.genLabel();
-        this->falseList = exp->falseList;
         this->trueList = exp->trueList;
-        this->reg = exp->reg;
-        this->value = exp->value;
-        this->type = exp->type;
-        this->boolVal = exp->boolVal;
-    }
+        this->falseList = exp->falseList;
+        /*int loc = buffer.emit("br i1 " + this->reg + ", label @, label @");
+        trueList = buffer.makelist(pair<int, BranchLabelIndex>(loc, FIRST));
+        falseList = buffer.makelist(pair<int, BranchLabelIndex>(loc, SECOND));*/
 }
 
 M::M() {
-    this->Label = buffer.genLabel();
+    this->instr = buffer.genLabel();
 }
 
 N::N() {
@@ -496,7 +517,7 @@ N::N() {
 void ifBp(M *Label1, Exp *exp) {
     int loc = buffer.emit("br label @");
     string end = buffer.genLabel();
-    buffer.bpatch(exp->trueList, Label1->Label);
+    buffer.bpatch(exp->trueList, Label1->instr);
     buffer.bpatch(exp->falseList, end);
     buffer.bpatch(buffer.makelist({loc, FIRST}), end);
 }
@@ -504,7 +525,7 @@ void ifBp(M *Label1, Exp *exp) {
 void ifElseBp(M *Label1, N *Label2, Exp *exp) {
     int loc2 = buffer.emit("br label @");
     string end = buffer.genLabel();
-    buffer.bpatch(exp->trueList, Label1->Label);
+    buffer.bpatch(exp->trueList, Label1->instr);
     buffer.bpatch(exp->falseList, Label2->Label);
     buffer.bpatch(buffer.makelist({Label2->loc, FIRST}), end);
     buffer.bpatch(buffer.makelist({loc2, FIRST}), end);
