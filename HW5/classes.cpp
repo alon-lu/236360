@@ -224,11 +224,15 @@ Exp::Exp(Node *Not, Exp *exp) {
     }
     this->type = "BOOL";
     this->reg = pool.getReg();
-    buffer.emit("%"+this->reg+" = add i1 1, %"+exp->reg);
+    buffer.emit("%" + this->reg + " = add i1 1, %" + exp->reg);
     this->falseList = exp->trueList;
     this->trueList = exp->falseList;
 }
 
+string relo(string s) {
+    string ss = s;
+    return s;
+}
 
 Exp::Exp(Exp *left, Node *op, Exp *right, string str, P *shortC) {
     //this->startLabel = buffer.genLabel();
@@ -238,10 +242,8 @@ Exp::Exp(Exp *left, Node *op, Exp *right, string str, P *shortC) {
     this->falseList = listFalse;
     vector<pair<int, BranchLabelIndex>> listTrue;
     this->trueList = listTrue;
-    if ((left->type.compare("BYTE") == 0 ||
-         left->type.compare("INT") == 0) &&
-        (right->type.compare("BYTE") == 0 ||
-         right->type.compare("INT") == 0)) {// both operands must be numbers
+    if ((left->type.compare("BYTE") == 0 || left->type.compare("INT") == 0) &&
+        (right->type.compare("BYTE") == 0 || right->type.compare("INT") == 0)) {// both operands must be numbers
 
         if (str.compare("RELOPL") == 0 || str.compare("RELOPN") == 0) {
             this->type = "BOOL";
@@ -281,19 +283,15 @@ Exp::Exp(Exp *left, Node *op, Exp *right, string str, P *shortC) {
                 if (left->type == "BYTE") {
                     //%X = zext i8 %t3 to i32
                     dataRegL = pool.getReg();
-                    buffer.emit("%" + dataRegL + " = zext i8 %" + left->reg +
-                                " to i32");
+                    buffer.emit("%" + dataRegL + " = zext i8 %" + left->reg + " to i32");
                 }
                 if (right->type == "BYTE") {
                     //%X = zext i8 %t3 to i32
                     dataRegR = pool.getReg();
-                    buffer.emit("%" + dataRegR + " = zext i8 %" + right->reg +
-                                " to i32");
+                    buffer.emit("%" + dataRegR + " = zext i8 %" + right->reg + " to i32");
                 }
             }
-            buffer.emit(
-                    "%" + this->reg + " = icmp " + relop + " " + isize + " %" +
-                    dataRegL + ", %" + dataRegR);
+            buffer.emit("%" + this->reg + " = icmp " + relop + " " + isize + " %" + dataRegL + ", %" + dataRegR);
 //            int loc = buffer.emit("br i1 " + this->reg + ", label @, label @");
 //            this->trueList = buffer.makelist({loc, FIRST});
 //            this->falseList = buffer.makelist({loc, SECOND});
@@ -315,15 +313,11 @@ Exp::Exp(Exp *left, Node *op, Exp *right, string str, P *shortC) {
                 operation = "mul";
             } else if (op->value.compare("/") == 0) {
                 string cond = pool.getReg();
-                buffer.emit(
-                        "%" + cond + " = icmp eq i32 %" + right->reg + ", 0");
-                int Bfirst = buffer.emit("br i1 %" + cond +
-                                         ", label @, label @");//label %zeroflag, label %dodiv
+                buffer.emit("%" + cond + " = icmp eq i32 %" + right->reg + ", 0");
+                int Bfirst = buffer.emit("br i1 %" + cond + ", label @, label @");//label %zeroflag, label %dodiv
                 string Lfirst = buffer.genLabel();//zeroflag
                 string zero = pool.getReg();
-                buffer.emit(
-                        "%" + zero +
-                        " = getelementptr [22 x i8], [22 x i8]* @zero, i32 0, i32 0");
+                buffer.emit("%" + zero + " = getelementptr [22 x i8], [22 x i8]* @zero, i32 0, i32 0");
                 buffer.emit(
                         "call void @print(i8* %" + zero +
                         ")");//  call void (i8*)* @print(i8* %str)
@@ -341,21 +335,15 @@ Exp::Exp(Exp *left, Node *op, Exp *right, string str, P *shortC) {
                 if (left->type == "BYTE") {
                     //%X = zext i8 %t3 to i32
                     dataRegL = pool.getReg();
-                    buffer.emit("%" + dataRegL + " = zext i8 %" + left->reg +
-                                " to i32");
+                    buffer.emit("%" + dataRegL + " = zext i8 %" + left->reg + " to i32");
                 }
                 if (right->type == "BYTE") {
                     //%X = zext i8 %t3 to i32
                     dataRegR = pool.getReg();
-                    buffer.emit("%" + dataRegR + " = zext i8 %" + right->reg +
-                                " to i32");
+                    buffer.emit("%" + dataRegR + " = zext i8 %" + right->reg + " to i32");
                 }
             }
-            buffer.emit(
-                    "%" + this->reg + " = " + operation + " " + isize + " %" +
-                    dataRegL + ", %" + dataRegR);
-
-
+            buffer.emit("%" + this->reg + " = " + operation + " " + isize + " %" + dataRegL + ", %" + dataRegR);
         }
     } else if ((left->type.compare("BOOL") == 0 &&
                 right->type.compare("BOOL") == 0)) {//both are bool
@@ -364,11 +352,11 @@ Exp::Exp(Exp *left, Node *op, Exp *right, string str, P *shortC) {
 
         if (str.compare("AND") == 0 || str.compare("OR") == 0) {
             string boolop;
-            string st=right->instr;
-            if(st != ""){
-                this->instr = right->instr;
-            }else{
-                this->instr = shortC->instr;
+            string st = right->instrc;
+            if (st != "") {
+                this->instrc = right->instrc;
+            } else {
+                this->instrc = shortC->instr;
             }
             if (op->value.compare("and") == 0) {
 //                buffer.bpatch(left->trueList, shortC->instr);
@@ -378,17 +366,12 @@ Exp::Exp(Exp *left, Node *op, Exp *right, string str, P *shortC) {
                 string leftFalse = buffer.genLabel();
                 int loc3 = buffer.emit("br label @");//label is end
                 string end = buffer.genLabel();
-                buffer.emit(
-                        "%" + this->reg + " = phi i1 [%" + right->reg + ", %" +
-                        this->instr + "],[0, %" + leftFalse + "]");
-                this->instr=end;
-                buffer.bpatch(buffer.makelist({shortC->loc, FIRST}),
-                              shortC->instr);
-                buffer.bpatch(buffer.makelist({shortC->loc, SECOND}),
-                              leftFalse);
+                buffer.emit("%" + this->reg + " = phi i1 [%" + right->reg + ", %" + this->instrc + "],[0, %" + leftFalse + "]");
+                this->instrc = relo(end);
+                buffer.bpatch(buffer.makelist({shortC->loc, FIRST}), shortC->instr);
+                buffer.bpatch(buffer.makelist({shortC->loc, SECOND}), leftFalse);
                 buffer.bpatch(buffer.makelist({loc2, FIRST}), end);
                 buffer.bpatch(buffer.makelist({loc3, FIRST}), end);
-
             } else if (op->value.compare("or") == 0) {
 //                buffer.bpatch(left->falseList, shortC->instr);
 //                this->falseList = right->falseList;
@@ -397,16 +380,12 @@ Exp::Exp(Exp *left, Node *op, Exp *right, string str, P *shortC) {
                 string leftTrue = buffer.genLabel();
                 int loc3 = buffer.emit("br label @");//label is end
                 string end = buffer.genLabel();
-                buffer.emit(
-                        "%" + this->reg + " = phi i1 [%" + right->reg + ", %" +
-                                this->instr + "],[1, %" + leftTrue + "]");
+                buffer.emit("%" + this->reg + " = phi i1 [%" + right->reg + ", %" + this->instrc + "],[1, %" + leftTrue + "]");
                 buffer.bpatch(buffer.makelist({shortC->loc, FIRST}), leftTrue);
-                buffer.bpatch(buffer.makelist({shortC->loc, SECOND}),
-                              shortC->instr);
+                buffer.bpatch(buffer.makelist({shortC->loc, SECOND}), shortC->instr);
                 buffer.bpatch(buffer.makelist({loc2, FIRST}), end);
                 buffer.bpatch(buffer.makelist({loc3, FIRST}), end);
             }
-
         } else {
             output::errorMismatch(yylineno);
             exit(0);
@@ -594,38 +573,35 @@ Call::Call(Node *ID, ExpList *list) {
                 output::errorUndefFunc(yylineno, ID->value);
                 exit(0);
             }
-            string argsDecl = "(";// will hold the arg decel string structured as such (i32,i32)
             string args = "(";//will hold the passed args themselves (i32 %x,i32 %y)
             if (i->types.size() ==
                 1 + list->expList.size()) {//checking the number of arguments
                 for (int j = 0; j < list->expList.size(); j++) {
-                    args += get_LLVM_Type(i->types[j]) + " %" +
-                            list->expList[j].reg + ",";
-                    argsDecl += get_LLVM_Type(i->types[j]) + ",";
-                    if (list->expList[j].type == "BYTE" &&
-                        i->types[j] == "INT") {
+                    if (list->expList[j].type == "BYTE" && i->types[j] == "INT") {
+                        string reg = pool.getReg();
+                        buffer.emit("%" + reg + " = zext  i8 %" + list->expList[j].reg + " to i32");
+                        args += get_LLVM_Type("INT") + " %" + reg + ",";
                         continue;
                     }
+                    args += get_LLVM_Type(i->types[j]) + " %" + list->expList[j].reg + ",";
+//                    if (list->expList[j].type == "BYTE" &&i->types[j] == "INT") {
+//                        continue;
+//                    }
                     if (list->expList[j].type != i->types[j]) {
                         i->types.pop_back();
-                        output::errorPrototypeMismatch(yylineno, i->name,
-                                                       i->types);
+                        output::errorPrototypeMismatch(yylineno, i->name, i->types);
                         exit(0);
                     }
                 }
                 args.back() = ')';
-                argsDecl.back() = ')';
-                this->value = i->types.back();//TODO handle strings
+                this->value = i->types.back();
                 string funcName = ID->value;
                 string retType = get_LLVM_Type(this->value);
                 this->reg = pool.getReg();
                 if (retType == "void") {
-                    buffer.emit(
-                            "call " + retType + " @" + funcName + " " + args);
+                    buffer.emit("call " + retType + " @" + funcName + " " + args);
                 } else {
-                    buffer.emit(
-                            "%" + reg + " = call " + retType + " @" + funcName +
-                            " " + args);
+                    buffer.emit("%" + reg + " = call " + retType + " @" + funcName + " " + args);
                     /// this is a call with no parameters
                     ///     %call = call i32  @foo(i32 %whhh,i32 %whhh)
                 }
@@ -782,9 +758,7 @@ FuncDecl::FuncDecl(RetType *retType, Node *ID, Formals *args) {
         if (argtype != "i32") {
             //%X = zext i8 %t3 to i32
             dataReg = pool.getReg();
-            buffer.emit(
-                    "%" + dataReg + " = zext " + argtype + " %" + to_string(i) +
-                    " to i32");
+            buffer.emit("%" + dataReg + " = zext " + argtype + " %" + to_string(i) + " to i32");
         }
         //store i32 %t3, i32* %ptr
         buffer.emit("store i32 %" + dataReg + ", i32* %" + ptrReg);
@@ -1126,7 +1100,7 @@ Statement::Statement(Exp *exp) {
                            tablesStack[i]->lines[j]->types[size - 1] == "INT") {
                     data = exp->value; //allowing the case of retType to be byte in case it was int
                     string dataReg = pool.getReg();
-                    buffer.emit("%" + dataReg + " = zext i8 " + exp->reg +
+                    buffer.emit("%" + dataReg + " = zext i8 %" + exp->reg +
                                 " to i32");
                     buffer.emit("ret i32 %" + dataReg);
                     return;

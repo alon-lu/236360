@@ -76,9 +76,9 @@ class Node {
 public:
     string reg;
     string value;
-    string instr;
+    string instrc;
     Node(string str) {
-        instr = "";
+//        instrc = "XX";
         if (str == "void") {
             value = "VOID";
         } else if (str == "bool") {
@@ -92,7 +92,7 @@ public:
     }
 
     Node() {
-        instr = "";
+//        instrc = "";
         value = "";
     }
 
@@ -326,6 +326,7 @@ public:
 //    RETURN Exp SC
     Statement(Exp *exp);
 
+    //todo pass breakList and continueList onwards
 //    LBRACE Statements RBRACE
     Statement(Statements *sts);
 
