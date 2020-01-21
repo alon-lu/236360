@@ -297,19 +297,24 @@ Exp::Exp(Exp *left, Node *op, Exp *right, string str, M *shortC) {
                 operation = "sub";
             } else if (op->value.compare("*") == 0) {
                 operation = "mul";
-            } else if (op->value.compare("/") == 0) {
-                buffer.emit("%cond = icmp eq i32 %" + right->reg + ", 0");
-                buffer.emit("br i1 %cond, label %zeroflag, label %dodiv");
-                buffer.emit("zeroflag: ");//
-                buffer.emit(
-                        "%zero = getelementptr [22 x i8], [22 x i8]* @zero, i32 0, i32 0");
-                buffer.emit(
-                        "call void @print(i8* %zero)");//  call void (i8*)* @print(i8* %str)
-                buffer.emit("call void @exit(i32 0)");
-                buffer.emit("br label %dodiv");
-                buffer.emit("dodiv:");
-                operation = "sdiv";
-            }
+              } else if (op->value.compare("/") == 0) {
+                  string cond = pool.getReg();
+                  buffer.emit("%" + cond + " = icmp eq i32 %" + right->reg + ", 0");
+                  int Bfirst = buffer.emit("br i1 %" + cond + ", label @, label @");//label %zeroflag, label %dodiv
+                  string Lfirst = buffer.genLabel();//zeroflag
+                  string zero = pool.getReg();
+                  buffer.emit(
+                          "%" + zero + " = getelementptr [22 x i8], [22 x i8]* @zero, i32 0, i32 0");
+                  buffer.emit(
+                          "call void @print(i8* %" + zero + ")");//  call void (i8*)* @print(i8* %str)
+                  buffer.emit("call void @exit(i32 0)");
+                  int Bsecond = buffer.emit("br label @");//dodiv
+                  string Lsecond = buffer.genLabel();//zeroflag
+                  buffer.bpatch(buffer.makelist({Bfirst, FIRST}), Lfirst);
+                  buffer.bpatch(buffer.makelist({Bfirst, SECOND}), Lsecond);
+                  buffer.bpatch(buffer.makelist({Bsecond, FIRST}), Lsecond);
+                  operation = "sdiv";
+              }
             string dataRegL = left->reg;
             string dataRegR = right->reg;
             if (isize == "i32") {
@@ -851,14 +856,18 @@ Statement::Statement(Type *type, Node *id, Exp *exp) {
 
     this->reg = pool.getReg();
     string expType = get_LLVM_Type(type->value);
-
-    buffer.emit("%" + this->reg + " = add " + expType + " 0,%" +
-                exp->reg);//%reg= add i8 %r3, %r3
+    string dataReg = exp->reg;
+    if(type->value == "INT" && exp->type == "BYTE"){
+        //%X = zext i8 %t3 to i32
+        dataReg = pool.getReg();
+        buffer.emit("%" + dataReg + " = zext i8 %" + exp->reg + " to i32");
+    }
+    buffer.emit("%" + this->reg + " = add " + expType + " 0,%" + dataReg);//%reg= add i8 %r3, %r3
     string ptr = pool.getReg();
     buffer.emit("%" + ptr +
                 " = getelementptr [50 x i32], [50 x i32]* %stack, i32 0, i32 " +
                 to_string(offset));
-    string dataReg = reg;
+    dataReg = reg;
     if (expType != "i32") {
         //%X = zext i8 %t3 to i32
         dataReg = pool.getReg();
@@ -868,8 +877,8 @@ Statement::Statement(Type *type, Node *id, Exp *exp) {
     buffer.emit("store i32 %" + dataReg + ", i32* %" + ptr);
     //%ptr = getelementptr [10 x i32]*, [10 x i32]* %args, i32 0, i32 0
     //store i32 %t3, i32* %ptr
-
 }
+
 
 Statement::Statement(EnumType *enumType, Node *id, Exp *exp) {
     bool flag = false;
@@ -1052,7 +1061,7 @@ Statement::Statement(Exp *exp) {
                            tablesStack[i]->lines[j]->types[size - 1] == "INT") {
                     data = exp->value; //allowing the case of retType to be byte in case it was int
                     string dataReg = pool.getReg();
-                    buffer.emit(dataReg + " = zext i8 " + exp->reg + " to i32");
+                    buffer.emit("%" + dataReg + " = zext i8 " + exp->reg + " to i32");
                     buffer.emit("ret i32 %" + dataReg);
                     return;
                 } else {
@@ -1065,6 +1074,7 @@ Statement::Statement(Exp *exp) {
     output::errorUndef(yylineno, "this is crazy2");//should no reach this
     exit(0);
 }
+
 
 Statement::Statement(Node *word) {
     if (loopCount == 0) {
