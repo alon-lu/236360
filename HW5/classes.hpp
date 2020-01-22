@@ -78,7 +78,7 @@ public:
     string value;
     string instrc;
     Node(string str) {
-//        instrc = "XX";
+        instrc = "";
         if (str == "void") {
             value = "VOID";
         } else if (str == "bool") {
@@ -92,7 +92,7 @@ public:
     }
 
     Node() {
-//        instrc = "";
+        instrc = "";
         value = "";
     }
 
@@ -331,8 +331,7 @@ public:
     Statement(Statements *sts);
 
     // handels if, if else, while
-    Statement(string str, Exp *exp);
-
+    Statement(string str, Exp *exp,Statement* st= nullptr);
 
 // handling break and continue
     Statement(Node *word);
@@ -341,6 +340,8 @@ public:
     Statement(Call *call);
 
 };
+
+Statement *addElseStatement(Statement* stIf,Statement* stElse);
 
 void outLoop(N* firstL, P* secondL, Statement* st);
 

@@ -179,13 +179,8 @@ str) : Node(terminal->value) {
         this->reg = pool.getReg();
         terminal->value[terminal->value.size() - 1] = '\00';
         int size = terminal->value.size();
-        buffer.emitGlobal(
-                "@" + reg + "= constant [" + to_string(size) + " x i8] c\"" +
-                terminal->value + "\"");
-        buffer.emit(
-                "%" + reg + "= getelementptr [" + to_string(size) +
-                " x i8], [" + to_string(size) + " x i8]* @" + reg +
-                ", i8 0, i8 0");
+        buffer.emitGlobal("@" + reg + "= constant [" + to_string(size) + " x i8] c\"" + terminal->value + "\"");
+        buffer.emit("%" + reg + "= getelementptr [" + to_string(size) + " x i8], [" + to_string(size) + " x i8]* @" + reg + ", i8 0, i8 0");
         //%t3 = getelementptr [10 x i8], [10 x i8]* @t3, i8 0, i8 0
         //@name = constant [4 x i8] c"blabal"
     }
@@ -242,6 +237,7 @@ Exp::Exp(Exp *left, Node *op, Exp *right, string str, P *shortC) {
     this->falseList = listFalse;
     vector<pair<int, BranchLabelIndex>> listTrue;
     this->trueList = listTrue;
+    string end = "";
     if ((left->type.compare("BYTE") == 0 || left->type.compare("INT") == 0) &&
         (right->type.compare("BYTE") == 0 || right->type.compare("INT") == 0)) {// both operands must be numbers
 
@@ -292,6 +288,10 @@ Exp::Exp(Exp *left, Node *op, Exp *right, string str, P *shortC) {
                 }
             }
             buffer.emit("%" + this->reg + " = icmp " + relop + " " + isize + " %" + dataRegL + ", %" + dataRegR);
+            if (right->instrc != "") {
+                end = right->instrc;
+            } else end = left->instrc;
+
 //            int loc = buffer.emit("br i1 " + this->reg + ", label @, label @");
 //            this->trueList = buffer.makelist({loc, FIRST});
 //            this->falseList = buffer.makelist({loc, SECOND});
@@ -305,6 +305,8 @@ Exp::Exp(Exp *left, Node *op, Exp *right, string str, P *shortC) {
             }
             this->reg = pool.getReg();
             string operation;
+            string dataRegR = right->reg;
+            string dataRegL = left->reg;
             if (op->value.compare("+") == 0) {
                 operation = "add";
             } else if (op->value.compare("-") == 0) {
@@ -313,24 +315,32 @@ Exp::Exp(Exp *left, Node *op, Exp *right, string str, P *shortC) {
                 operation = "mul";
             } else if (op->value.compare("/") == 0) {
                 string cond = pool.getReg();
-                buffer.emit("%" + cond + " = icmp eq i32 %" + right->reg + ", 0");
+                if (right->type == "BYTE") {
+                    //%X = zext i8 %t3 to i32
+                    dataRegR = pool.getReg();
+                    buffer.emit("%" + dataRegR + " = zext i8 %" + right->reg + " to i32");
+                }
+                if (left->type == "BYTE") {
+                    //%X = zext i8 %t3 to i32
+                    dataRegL = pool.getReg();
+                    buffer.emit("%" + dataRegL + " = zext i8 %" + left->reg + " to i32");
+                }
+                buffer.emit("%" + cond + " = icmp eq i32 %" + dataRegR + ", 0");
                 int Bfirst = buffer.emit("br i1 %" + cond + ", label @, label @");//label %zeroflag, label %dodiv
                 string Lfirst = buffer.genLabel();//zeroflag
                 string zero = pool.getReg();
-                buffer.emit("%" + zero + " = getelementptr [22 x i8], [22 x i8]* @zero, i32 0, i32 0");
-                buffer.emit(
-                        "call void @print(i8* %" + zero +
-                        ")");//  call void (i8*)* @print(i8* %str)
+                buffer.emit("%" + zero + " = getelementptr [22 x i8], [22 x i8]* @DavidThrowsZeroExcp, i32 0, i32 0");
+                buffer.emit("call void @print(i8* %" + zero + ")");//  call void (i8*)* @print(i8* %str)
                 buffer.emit("call void @exit(i32 0)");
                 int Bsecond = buffer.emit("br label @");//dodiv
                 string Lsecond = buffer.genLabel();//zeroflag
                 buffer.bpatch(buffer.makelist({Bfirst, FIRST}), Lfirst);
                 buffer.bpatch(buffer.makelist({Bfirst, SECOND}), Lsecond);
                 buffer.bpatch(buffer.makelist({Bsecond, FIRST}), Lsecond);
+                isize = "i32";
                 operation = "sdiv";
+                end = Lsecond;
             }
-            string dataRegL = left->reg;
-            string dataRegR = right->reg;
             if (isize == "i32") {
                 if (left->type == "BYTE") {
                     //%X = zext i8 %t3 to i32
@@ -344,6 +354,12 @@ Exp::Exp(Exp *left, Node *op, Exp *right, string str, P *shortC) {
                 }
             }
             buffer.emit("%" + this->reg + " = " + operation + " " + isize + " %" + dataRegL + ", %" + dataRegR);
+            if (operation == "sdiv" && right->type == "BYTE" && left->type == "BYTE") {
+                //%X = zext i8 %t3 to i32
+                string dataReg = pool.getReg();
+                buffer.emit("%" + dataReg + " = trunc i32 %" + this->reg + " to i8");
+                this->reg = dataReg;
+            }
         }
     } else if ((left->type.compare("BOOL") == 0 &&
                 right->type.compare("BOOL") == 0)) {//both are bool
@@ -352,8 +368,7 @@ Exp::Exp(Exp *left, Node *op, Exp *right, string str, P *shortC) {
 
         if (str.compare("AND") == 0 || str.compare("OR") == 0) {
             string boolop;
-            string st = right->instrc;
-            if (st != "") {
+            if (right->instrc != "") {
                 this->instrc = right->instrc;
             } else {
                 this->instrc = shortC->instr;
@@ -365,9 +380,8 @@ Exp::Exp(Exp *left, Node *op, Exp *right, string str, P *shortC) {
                 int loc2 = buffer.emit("br label @");//label is end
                 string leftFalse = buffer.genLabel();
                 int loc3 = buffer.emit("br label @");//label is end
-                string end = buffer.genLabel();
+                end = buffer.genLabel();
                 buffer.emit("%" + this->reg + " = phi i1 [%" + right->reg + ", %" + this->instrc + "],[0, %" + leftFalse + "]");
-                this->instrc = relo(end);
                 buffer.bpatch(buffer.makelist({shortC->loc, FIRST}), shortC->instr);
                 buffer.bpatch(buffer.makelist({shortC->loc, SECOND}), leftFalse);
                 buffer.bpatch(buffer.makelist({loc2, FIRST}), end);
@@ -379,7 +393,7 @@ Exp::Exp(Exp *left, Node *op, Exp *right, string str, P *shortC) {
                 int loc2 = buffer.emit("br label @");//label is end
                 string leftTrue = buffer.genLabel();
                 int loc3 = buffer.emit("br label @");//label is end
-                string end = buffer.genLabel();
+                end = buffer.genLabel();
                 buffer.emit("%" + this->reg + " = phi i1 [%" + right->reg + ", %" + this->instrc + "],[1, %" + leftTrue + "]");
                 buffer.bpatch(buffer.makelist({shortC->loc, FIRST}), leftTrue);
                 buffer.bpatch(buffer.makelist({shortC->loc, SECOND}), shortC->instr);
@@ -394,6 +408,10 @@ Exp::Exp(Exp *left, Node *op, Exp *right, string str, P *shortC) {
         output::errorMismatch(yylineno);
         exit(0);
     }
+    if (end != "") {
+        this->instrc = end;
+    }
+
 }
 
 Exp::Exp(Exp *exp) {
@@ -402,6 +420,7 @@ Exp::Exp(Exp *exp) {
     this->type = exp->type;
     this->boolVal = exp->boolVal;
     this->reg = exp->reg;
+    this->instrc = exp->instrc;
     this->trueList = exp->trueList;
     this->falseList = exp->falseList;
 }
@@ -414,6 +433,7 @@ Exp::Exp(Type *type, Exp *exp) {//cant see type because it is announced later
             value = exp->value;
             this->type = "INT";
             this->reg = exp->reg;
+            this->instrc = exp->instrc;
             this->falseList = exp->falseList;
             this->trueList = exp->trueList;
         }
@@ -464,8 +484,7 @@ Exp::Exp(Node *ID) {
             if (tablesStack[i]->lines[j]->name == ID->value) {
                 this->value = ID->value;
                 this->type = tablesStack[i]->lines[j]->types.back();
-                this->reg = loadVariable(tablesStack[i]->lines[j]->offset,
-                                         this->type);
+                this->reg = loadVariable(tablesStack[i]->lines[j]->offset, this->type);
                 return;
             }
         }
@@ -479,8 +498,7 @@ Exp::Exp(Node *ID) {
                     string XX = "enum";
                     this->type = XX + " " + enumsStack[i]->enumLines[j]->name;
                     this->reg = pool.getReg();
-                    buffer.emit(
-                            "%" + this->reg + "= add i32 0, " + to_string(k));
+                    buffer.emit("%" + this->reg + "= add i32 0, " + to_string(k));
                     return;
                 }
             }
@@ -494,10 +512,12 @@ Exp::Exp(Call *call) {
 //    this->startLabel = buffer.genLabel();
     this->type = call->value;
     this->reg = call->reg;
+    this->instrc = call->instrc;
     vector<pair<int, BranchLabelIndex>> listFalse;
     this->falseList = listFalse;
     vector<pair<int, BranchLabelIndex>> listTrue;
     this->trueList = listTrue;
+
 
 }
 
@@ -511,6 +531,7 @@ Exp::Exp(Exp *exp, string str) {//checking for if and short circuit
     type = exp->type;
     boolVal = exp->boolVal;
     this->reg = exp->reg;
+    this->instrc = exp->instrc;
     int loc = buffer.emit("br i1 %" + this->reg + ", label @, label @");
     trueList = buffer.makelist(pair<int, BranchLabelIndex>(loc, FIRST));
     falseList = buffer.makelist(pair<int, BranchLabelIndex>(loc, SECOND));
@@ -605,6 +626,9 @@ Call::Call(Node *ID, ExpList *list) {
                     /// this is a call with no parameters
                     ///     %call = call i32  @foo(i32 %whhh,i32 %whhh)
                 }
+                int loc = buffer.emit("br label @");
+                this->instrc = buffer.genLabel();
+                buffer.bpatch(buffer.makelist({loc, FIRST}), this->instrc);
                 return;//if we got here without errors, we found our function
             } else {
                 i->types.pop_back();
@@ -634,9 +658,7 @@ Call::Call(Node *ID) {
                 if (retType == "void") {
                     buffer.emit("call " + retType + " @" + funcName + "()");
                 } else {
-                    buffer.emit(
-                            "%" + reg + " = call " + retType + " @" + funcName +
-                            "()");
+                    buffer.emit("%" + reg + " = call " + retType + " @" + funcName + "()");
                     /// this is a call with no parameters
                     ///            %call = call i32 @foo()
                 }
@@ -913,9 +935,7 @@ Statement::Statement(EnumType *enumType, Node *id, Exp *exp) {
     for (int i = enumsStack.size() - 1; i >= 0; i--) {
         for (int j = 0; j < enumsStack[i]->enumLines.size(); ++j) {
             int len = enumType->value.length();
-            if (enumType->value.compare(5, len - 5,
-                                        enumsStack[i]->enumLines[j]->name) ==
-                0) {
+            if (enumType->value.compare(5, len - 5,enumsStack[i]->enumLines[j]->name) == 0) {
                 flag = true;
                 enumVals = enumsStack[i]->enumLines[j]->values;
                 break;
@@ -924,9 +944,8 @@ Statement::Statement(EnumType *enumType, Node *id, Exp *exp) {
     }
 
     if (flag == false) {
-        output::errorUndefEnum(yylineno, enumType->value.substr(5,
-                                                                enumType->value.size() -
-                                                                5));
+        output::errorUndefEnum(yylineno,
+                enumType->value.substr(5,enumType->value.size() -5));
         exit(0);
     }
     if (identifierExists(id->value)) {
@@ -940,8 +959,10 @@ Statement::Statement(EnumType *enumType, Node *id, Exp *exp) {
             break;
         }
     }
-
-    if (data == "null") {
+if(exp->type==enumType->value){
+    data = "X";
+}
+    if (data == "null" ) {
         for (int i = enumsStack.size() - 1; i >= 0; i--) {
             for (int j = 0; j < enumsStack[i]->enumLines.size(); ++j) {
                 for (auto k:enumsStack[i]->enumLines[j]->values) {
@@ -957,15 +978,13 @@ Statement::Statement(EnumType *enumType, Node *id, Exp *exp) {
     }
 
     int offset = offsetsStack.back()++;
-    auto temp = shared_ptr<Entry>(
-            new Entry(id->value, enumType->value, offset));
+    auto temp = shared_ptr<Entry>(new Entry(id->value, enumType->value, offset));
     tablesStack.back()->lines.emplace_back(temp);
     ///emitting code
     this->reg = pool.getReg();
-    buffer.emit("%" + this->reg + " = add i32 0," + data);//%reg= add i8 r3, r3
+    buffer.emit("%" + this->reg + " = add i32 0, %" + exp->reg);//%reg= add i8 r3, r3
     string ptr = pool.getReg();
-    buffer.emit("%" + ptr +
-                " = getelementptr [50 x i32], [50 x i32]* %stack, i32 0, i32 " +
+    buffer.emit("%" + ptr + " = getelementptr [50 x i32], [50 x i32]* %stack, i32 0, i32 " +
                 to_string(offset));
     string dataReg = reg;
     buffer.emit("store i32 %" + dataReg + ", i32* %" + ptr);
@@ -1012,23 +1031,18 @@ Statement::Statement(Node *id, Exp *exp) {
     vector<pair<int, BranchLabelIndex>> listContinue;
     this->continueList = listContinue;
     for (int i = tablesStack.size() - 1; i >= 0; i--) {
-        for (int j = 0; j <
-                        tablesStack[i]->lines.size(); ++j) {//finding in symbol table
+        for (int j = 0; j < tablesStack[i]->lines.size(); ++j) {//finding in symbol table
             if (tablesStack[i]->lines[j]->name == id->value) {
                 if (tablesStack[i]->lines[j]->types.size() ==
                     1) {//making sure this is not a function
-                    if ((tablesStack[i]->lines[j]->types[0] == "INT" &&
-                         exp->type == "BYTE") ||
-                        tablesStack[i]->lines[j]->types[0] ==
-                        exp->type) {//checking types
+                    if ((tablesStack[i]->lines[j]->types[0] == "INT" && exp->type == "BYTE") ||
+                        tablesStack[i]->lines[j]->types[0] == exp->type) {//checking types
                         data = exp->value;
-                        this->reg = doEmitting(exp->reg, exp->type,
-                                               tablesStack[i]->lines[j]->offset);
+                        this->instrc = exp->instrc;
+                        this->reg = doEmitting(exp->reg, exp->type, tablesStack[i]->lines[j]->offset);
                         return;
                     } else {
-                        if (tablesStack[i]->lines[j]->types[0].compare(0, 4,
-                                                                       "enum") ==
-                            0) {
+                        if (tablesStack[i]->lines[j]->types[0].compare(0, 4, "enum") == 0) {
                             output::errorUndefEnumValue(yylineno, id->value);
                             exit(0);
                         }
@@ -1048,8 +1062,7 @@ Statement::Statement(Node *id, Exp *exp) {
 }
 
 //%X = trunc i32 257 to i8
-Statement::Statement(string
-                     retType) {
+Statement::Statement(string retType) {
     vector<pair<int, BranchLabelIndex>> listBreak;
     this->breakList = listBreak;
     vector<pair<int, BranchLabelIndex>> listContinue;
@@ -1115,7 +1128,6 @@ Statement::Statement(Exp *exp) {
     exit(0);
 }
 
-
 Statement::Statement(Node *word) {
     vector<pair<int, BranchLabelIndex>> listBreak;
     this->breakList = listBreak;
@@ -1149,8 +1161,9 @@ Statement::Statement(Statements *sts) {
     this->breakList = sts->breakList;
 }
 
+
 // handels if, if else, while
-Statement::Statement(string str, Exp *exp) {
+Statement::Statement(string str, Exp *exp, Statement *st) {
     vector<pair<int, BranchLabelIndex>> listBreak;
     this->breakList = listBreak;
     vector<pair<int, BranchLabelIndex>> listContinue;
@@ -1160,7 +1173,18 @@ Statement::Statement(string str, Exp *exp) {
         exit(0);
     }
     data = "this was an if/ if else /while";
+    if (st != nullptr) {
+        this->continueList = st->continueList;
+        this->breakList = st->breakList;
+    }
 }
+
+Statement *addElseStatement(Statement *stIf, Statement *stElse) {
+    stIf->breakList = buffer.merge(stIf->breakList, stElse->breakList);
+    stIf->continueList = buffer.merge(stIf->continueList, stElse->continueList);
+    return stIf;
+}
+
 
 //    EnumDecl
 Statement::Statement(EnumDecl *enumDecl) {
@@ -1208,7 +1232,7 @@ Program::Program() {
 
     buffer.emitGlobal("@.int_specifier = constant [4 x i8] c\"%d\\0A\\00\"");
     buffer.emitGlobal("@.str_specifier = constant [4 x i8] c\"%s\\0A\\00\"");
-    buffer.emitGlobal("@zero = constant [22 x i8] c\"Error division by zero\"");
+    buffer.emitGlobal("@DavidThrowsZeroExcp = constant [22 x i8] c\"Error division by zero\"");
 
     buffer.emitGlobal("define void @printi(i32) {");
     buffer.emitGlobal(
